@@ -14,7 +14,12 @@ def make_handler(message_for_body):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             LOG.append({"path": self.path, "auth": self.headers.get("Authorization"), "body": body})
             message = message_for_body(body)
-            data = json.dumps({"choices": [{"message": message, "finish_reason": "stop"}]}).encode()
+            data = json.dumps(
+                {
+                    "choices": [{"message": message, "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
+                }
+            ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
@@ -33,10 +38,17 @@ def start_server(message_for_body):
     return server
 
 
+def run_isolated(stdin_text, env_extra):
+    with tempfile.TemporaryDirectory() as tmp:
+        script = Path(tmp) / "nanocode.py"
+        script.write_text(NANO.read_text(encoding="utf-8"), encoding="utf-8")
+        return run_nanocode(stdin_text, env_extra, script=script)
+
+
 def run_nanocode(stdin_text, env_extra, script=None):
     script = script or NANO
     env = dict(os.environ)
-    for var in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "MODEL", "API_BASE_URL", "API_KEY"):
+    for var in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "MODEL", "API_BASE_URL", "API_KEY", "CONTEXT_WINDOW"):
         env.pop(var, None)
     env.update(env_extra)
     env["PYTHONIOENCODING"] = "utf-8"
@@ -72,14 +84,12 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
 
         server = start_server(message_for_body)
         port = server.server_address[1]
-        try:
-            code, out, _err = run_nanocode(
-                "what is 2+2?\n",
-                {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
-            )
-        finally:
-            server.shutdown()
-            server.server_close()
+        code, out, _err = run_isolated(
+            "what is 2+2?\n",
+            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
+        )
+        server.shutdown()
+        server.server_close()
 
         self.assertEqual(code, 0)
         self.assertEqual(len(LOG), 2, "expected 2 API calls (tool call + final answer)")
@@ -103,14 +113,30 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
         self.assertIn("hello", out)
         self.assertIn("Done. The answer is 4.", out)
         self.assertIn(f"custom http://127.0.0.1:{port}/v1", out)
+        self.assertIn("tokens 100 in / 20 out", out)
+
+    def test_usage_percent_with_context_window(self):
+        def message_for_body(body):
+            return {"content": "Answer.", "tool_calls": []}
+
+        server = start_server(message_for_body)
+        port = server.server_address[1]
+        code, out, _err = run_isolated(
+            "hi\n",
+            {
+                "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
+                "API_KEY": "test-key",
+                "MODEL": "test-model",
+                "CONTEXT_WINDOW": "1000",
+            },
+        )
+        server.shutdown()
+        server.server_close()
+        self.assertEqual(code, 0)
+        self.assertIn("◔ ctx 120/1,000 (12.00%)", out)
 
     def test_model_required_with_custom_base_url(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            script = Path(tmp) / "nanocode.py"
-            script.write_text(NANO.read_text(encoding="utf-8"), encoding="utf-8")
-            code, _out, err = run_nanocode(
-                "hi\n", {"API_BASE_URL": "http://127.0.0.1:9/v1"}, script=script
-            )
+        code, _out, err = run_isolated("hi\n", {"API_BASE_URL": "http://127.0.0.1:9/v1"})
         self.assertEqual(code, 1)
         self.assertIn("MODEL environment variable is required", err)
 

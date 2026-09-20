@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """nanocode - micro coding agent"""
 
-import glob as globlib, json, os, re, subprocess, urllib.request
+import glob as globlib, json, os, re, subprocess, urllib.error, urllib.request
 
 def load_dotenv(path=None):
     if path is None:
@@ -40,6 +40,11 @@ if not MODEL:
     if API_FORMAT == "openai":
         raise SystemExit("MODEL environment variable is required when API_BASE_URL is set")
     MODEL = "anthropic/claude-opus-4.5" if OPENROUTER_KEY else "claude-opus-4-5"
+try:
+    CONTEXT_WINDOW = int(os.environ.get("CONTEXT_WINDOW", "0") or 0)
+except ValueError:
+    CONTEXT_WINDOW = 0
+
 # --- Thinking / reasoning (extended thinking) ---
 # Enable extended thinking. Set THINKING=0 to disable.
 THINKING = os.environ.get("THINKING", "1").strip() not in ("0", "false", "no", "off")
@@ -301,7 +306,10 @@ def call_api(messages, system_prompt):
             **({"Authorization": f"Bearer {OPENROUTER_KEY}"} if OPENROUTER_KEY else {"x-api-key": os.environ.get("ANTHROPIC_API_KEY", "")}),
         },
     )
-    response = urllib.request.urlopen(request)
+    try:
+        response = urllib.request.urlopen(request)
+    except urllib.error.HTTPError as err:
+        raise RuntimeError(f"HTTP {err.code}: {err.read().decode(errors='replace')[:500]}") from err
     return json.loads(response.read())
 
 
@@ -322,7 +330,11 @@ def call_api_openai(messages, system_prompt):
     request = urllib.request.Request(
         API_URL, data=json.dumps(body).encode(), headers=headers
     )
-    response = json.loads(urllib.request.urlopen(request).read())
+    try:
+        response = urllib.request.urlopen(request)
+    except urllib.error.HTTPError as err:
+        raise RuntimeError(f"HTTP {err.code}: {err.read().decode(errors='replace')[:500]}") from err
+    response = json.loads(response.read())
     message = response["choices"][0]["message"]
     blocks = []
     reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
@@ -339,7 +351,7 @@ def call_api_openai(messages, system_prompt):
                 "input": json.loads(tool_call["function"]["arguments"] or "{}"),
             }
         )
-    return {"content": blocks}
+    return {"content": blocks, "usage": response.get("usage")}
 
 
 def separator():
@@ -352,6 +364,24 @@ def separator():
 
 def render_markdown(text):
     return re.sub(r"\*\*(.+?)\*\*", f"{BOLD}\\1{RESET}", text)
+
+
+def render_usage(usage):
+    if not usage:
+        return None
+    if API_FORMAT == "openai":
+        prompt = usage.get("prompt_tokens", 0)
+        completion = usage.get("completion_tokens", 0)
+    else:
+        prompt = usage.get("input_tokens", 0)
+        completion = usage.get("output_tokens", 0)
+    if CONTEXT_WINDOW > 0:
+        total = prompt + completion
+        pct = (total / CONTEXT_WINDOW) * 100
+        color = RED if pct >= 90 else (YELLOW if pct >= 80 else DIM)
+        pie = "◔◑◕◓◖◐◗●"[min(7, int(pct * 8 // 100))]
+        return f"{color}{pie} ctx {total:,}/{CONTEXT_WINDOW:,} ({pct:.2f}%){RESET}"
+    return f"{DIM}⏺ tokens {prompt:,} in / {completion:,} out{RESET}"
 
 
 def main():
@@ -381,9 +411,11 @@ def main():
             messages.append({"role": "user", "content": user_input})
 
             # agentic loop: keep calling API until no more tool calls
+            usage = None
             while True:
                 response = call_api(messages, system_prompt)
                 content_blocks = response.get("content", [])
+                usage = response.get("usage")
                 tool_results = []
 
                 for block in content_blocks:
@@ -426,6 +458,9 @@ def main():
                     break
                 messages.append({"role": "user", "content": tool_results})
 
+            usage_line = render_usage(usage)
+            if usage_line:
+                print(usage_line)
             print()
 
         except (KeyboardInterrupt, EOFError):
