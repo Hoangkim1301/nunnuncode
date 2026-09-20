@@ -40,6 +40,19 @@ if not MODEL:
     if API_FORMAT == "openai":
         raise SystemExit("MODEL environment variable is required when API_BASE_URL is set")
     MODEL = "anthropic/claude-opus-4.5" if OPENROUTER_KEY else "claude-opus-4-5"
+# --- Thinking / reasoning (extended thinking) ---
+# Enable extended thinking. Set THINKING=0 to disable.
+THINKING = os.environ.get("THINKING", "1").strip() not in ("0", "false", "no", "off")
+try:
+    THINKING_BUDGET = int(os.environ.get("THINKING_BUDGET", "4096") or 0)
+except ValueError:
+    THINKING_BUDGET = 4096
+# Anthropic requires budget_tokens < max_tokens; cap the budget so it always fits.
+if THINKING_BUDGET <= 0:
+    THINKING = False
+MAX_TOKENS = 8192
+if THINKING:
+    THINKING_BUDGET = min(THINKING_BUDGET, MAX_TOKENS - 1)
 
 # ANSI colors
 RESET, BOLD, DIM = "\033[0m", "\033[1m", "\033[2m"
@@ -268,16 +281,19 @@ def to_openai_messages(messages):
 def call_api(messages, system_prompt):
     if API_FORMAT == "openai":
         return call_api_openai(messages, system_prompt)
+    body = {
+        "model": MODEL,
+        "max_tokens": MAX_TOKENS,
+        "system": system_prompt,
+        "messages": messages,
+        "tools": make_schema(),
+    }
+    if THINKING:
+        body["thinking"] = {"type": "enabled", "budget_tokens": THINKING_BUDGET}
     request = urllib.request.Request(
         API_URL,
         data=json.dumps(
-            {
-                "model": MODEL,
-                "max_tokens": 8192,
-                "system": system_prompt,
-                "messages": messages,
-                "tools": make_schema(),
-            }
+            body
         ).encode(),
         headers={
             "Content-Type": "application/json",
@@ -292,12 +308,14 @@ def call_api(messages, system_prompt):
 def call_api_openai(messages, system_prompt):
     body = {
         "model": MODEL,
-        "max_tokens": 8192,
+        "max_tokens": MAX_TOKENS,
         "messages": [
             {"role": "system", "content": system_prompt}
         ] + to_openai_messages(messages),
         "tools": make_openai_schema(),
     }
+    if THINKING:
+        body["reasoning"] = {"effort": "high"}
     headers = {"Content-Type": "application/json"}
     if CUSTOM_KEY:
         headers["Authorization"] = f"Bearer {CUSTOM_KEY}"
@@ -307,6 +325,9 @@ def call_api_openai(messages, system_prompt):
     response = json.loads(urllib.request.urlopen(request).read())
     message = response["choices"][0]["message"]
     blocks = []
+    reasoning = message.get("reasoning_content") or message.get("reasoning") or ""
+    if reasoning:
+        blocks.append({"type": "thinking", "thinking": reasoning})
     if message.get("content"):
         blocks.append({"type": "text", "text": message["content"]})
     for tool_call in message.get("tool_calls") or []:
@@ -336,7 +357,7 @@ def render_markdown(text):
 def main():
     print(f"{BOLD}nanocode{RESET} | {DIM}{MODEL} ({PROVIDER}) | {os.getcwd()}{RESET}\n")
     messages = []
-    system_prompt = f"Concise coding assistant. cwd: {os.getcwd()}"
+    system_prompt = f"You are a mini coding agent assistant. Your task is to assist with coding tasks and self detect improve your own harness. cwd: {os.getcwd()}"
 
     while True:
         try:
@@ -366,6 +387,11 @@ def main():
                 tool_results = []
 
                 for block in content_blocks:
+                    if block["type"] == "thinking":
+                        thinking_text = block.get("thinking", "")
+                        #preview = thinking_text.replace("\n", " ").strip()[:200]
+                        print(f"\n{DIM}</... thinking ... {thinking_text}\n>{RESET}")
+
                     if block["type"] == "text":
                         print(f"\n{CYAN}⏺{RESET} {render_markdown(block['text'])}")
 
