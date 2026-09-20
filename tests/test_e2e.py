@@ -13,14 +13,16 @@ def make_handler(message_for_body):
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             LOG.append({"path": self.path, "auth": self.headers.get("Authorization"), "body": body})
-            message = message_for_body(body)
-            data = json.dumps(
-                {
-                    "choices": [{"message": message, "finish_reason": "stop"}],
+            result = message_for_body(body)
+            if isinstance(result, tuple):
+                status, payload = result
+            else:
+                status, payload = 200, {
+                    "choices": [{"message": result, "finish_reason": "stop"}],
                     "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
                 }
-            ).encode()
-            self.send_response(200)
+            data = json.dumps(payload).encode()
+            self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
@@ -114,6 +116,36 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
         self.assertIn("Done. The answer is 4.", out)
         self.assertIn(f"custom http://127.0.0.1:{port}/v1", out)
         self.assertIn("tokens 100 in / 20 out", out)
+
+    def test_sliding_window_on_context_overflow(self):
+        def message_for_body(body):
+            turns = sum(
+                1
+                for m in body["messages"]
+                if m.get("role") == "user" and isinstance(m.get("content"), str)
+            )
+            if turns >= 2:
+                return (400, {"error": {"message": "maximum context length exceeded"}})
+            return {"content": f"Answer {len(LOG)}", "tool_calls": []}
+
+        server = start_server(message_for_body)
+        port = server.server_address[1]
+        code, out, _err = run_isolated(
+            "first question\nsecond question\n",
+            {
+                "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
+                "API_KEY": "test-key",
+                "MODEL": "test-model",
+            },
+        )
+        server.shutdown()
+        server.server_close()
+        self.assertEqual(code, 0)
+        self.assertIn("Answer 1", out)
+        self.assertIn("Answer 3", out)
+        self.assertNotIn("Answer 2", out)
+        self.assertIn("trimmed history", out)
+        self.assertEqual(len(LOG), 3)
 
     def test_usage_percent_with_context_window(self):
         def message_for_body(body):

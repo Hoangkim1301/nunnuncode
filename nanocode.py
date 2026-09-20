@@ -366,6 +366,25 @@ def render_markdown(text):
     return re.sub(r"\*\*(.+?)\*\*", f"{BOLD}\\1{RESET}", text)
 
 
+CONTEXT_ERROR_HINTS = ("context", "too long", "maximum context", "context_length", "length_exceeded")
+
+
+def is_context_error(err):
+    text = str(err).lower()
+    return "http 400" in text and any(hint in text for hint in CONTEXT_ERROR_HINTS)
+
+
+def trim_messages(messages):
+    starts = [
+        i
+        for i, m in enumerate(messages)
+        if m["role"] == "user" and isinstance(m["content"], str)
+    ]
+    if len(starts) < 2:
+        return None
+    return messages[starts[len(starts) // 2] :]
+
+
 def render_usage(usage):
     if not usage:
         return None
@@ -412,8 +431,18 @@ def main():
 
             # agentic loop: keep calling API until no more tool calls
             usage = None
+            context_retries = 0
             while True:
-                response = call_api(messages, system_prompt)
+                try:
+                    response = call_api(messages, system_prompt)
+                except RuntimeError as err:
+                    trimmed = trim_messages(messages)
+                    if context_retries >= 3 or not is_context_error(err) or trimmed is None:
+                        raise
+                    context_retries += 1
+                    messages = trimmed
+                    print(f"{YELLOW}⏺ context full — trimmed history, retry {context_retries}/3{RESET}")
+                    continue
                 content_blocks = response.get("content", [])
                 usage = response.get("usage")
                 tool_results = []
