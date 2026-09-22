@@ -5,7 +5,7 @@ Status: approved by user 2026-09-22
 
 ## Context
 
-`nunnuncode.py` has grown from the ~250 lines the README claims to 502 lines, mixing env config, tool implementations, LLM API calls, terminal rendering, and the main loop in one file. The working tree already carries an uncommitted rename `nanocode.py` -> `nunnuncode.py`, while tests and README still reference `nanocode.py` (tests are currently broken).
+`nunnuncode.py` has grown from the ~250 lines the README claims to 502 lines, mixing env config, tool implementations, LLM API calls, terminal rendering, and the main loop in one file. The file was already renamed `nanocode.py` -> `nunnuncode.py` (commit 46337bf); tests and README still reference `nanocode.py`, so tests are currently broken.
 
 Goal: organize the code into a small folder of single-purpose modules. No packaging, no new abstractions, no behavior change.
 
@@ -73,7 +73,7 @@ Dependency flow (flat, no cycles): `config` <- {`llm`, `tools`, `nunnuncode`}.
 
 ## Git
 
-The unstaged working-tree rename `nanocode.py` -> `nunnuncode.py` is subsumed by this change: the final tree has the `nunnuncode/` folder and no root `nanocode.py` or root `nunnuncode.py`.
+The rename `nanocode.py` -> `nunnuncode.py` is already committed (46337bf). This change moves the file into the `nunnuncode/` folder; the final tree has the `nunnuncode/` folder and no root `nanocode.py` or root `nunnuncode.py`.
 
 ## Verification
 
