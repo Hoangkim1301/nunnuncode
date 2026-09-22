@@ -11,7 +11,7 @@ Goal: organize the code into a small folder of single-purpose modules. No packag
 
 ## Out of scope
 
-- Behavior changes (all existing test assertions stay identical)
+- Behavior changes (all existing test assertions stay identical; the only exception is the `load_dotenv` default-path fallback in `config.py`, which preserves the current repo-root `.env` behavior after the move)
 - Packaging (`__init__.py`, `python -m`, `pyproject.toml`)
 - Unrelated refactors
 - Any rename other than the already-pending `nanocode` -> `nunnuncode`
@@ -34,7 +34,7 @@ Dependency flow (flat, no cycles): `config` <- {`llm`, `tools`, `nunnuncode`}.
 
 ### config.py
 
-- `load_dotenv(path=None)` — moved unchanged
+- `load_dotenv(path=None)` — moved, with one change to the default path: when `path` is None, look for `.env` in the module's directory first, then in its parent directory (the repo root, where `.env` and `.env.example` live). Without this, moving the file into `nunnuncode/` would silently stop loading the repo-root `.env`. Explicit paths behave exactly as before.
 - `load_dotenv()` call at import time — moved unchanged
 - Env parsing — moved unchanged: `OPENROUTER_KEY`, `CUSTOM_BASE`, `CUSTOM_KEY`, `API_FORMAT`, `API_URL`, `PROVIDER`, `MODEL` (including the `MODEL required when API_BASE_URL set` SystemExit), `CONTEXT_WINDOW`, `THINKING`, `THINKING_BUDGET`, `MAX_TOKENS`
 - ANSI colors: `RESET`, `BOLD`, `DIM`, `BLUE`, `CYAN`, `GREEN`, `YELLOW`, `RED`
