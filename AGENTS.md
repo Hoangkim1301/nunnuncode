@@ -1,484 +1,162 @@
 # AGENTS.md
 
-This file defines how coding agents should work in this repository.
+Instructions for coding agents working in this repository.
 
-## Mission
+## Project
 
 Nunnuncode is:
 
 > **A tiny agent that can safely grow itself.**
 
-The project is building a minimal foundation agent for non-technical users.
+It is a minimal foundation agent for non-technical users. The goal is to increase capability without letting architecture, code, permissions, or hidden complexity grow without control.
 
-It should begin with very few built-in capabilities, then be able to acquire, validate, reuse, simplify, replace, and retire capabilities over time.
+The repository is still early. Do not pretend the target architecture already exists, and do not rewrite the project just to match a future diagram.
 
-The goal is not maximum feature count.
+For deeper context:
+- Architecture and design invariants: `docs/ARCHITECTURE.md`
+- Development roadmap: `docs/ROADMAP.md`
+- GitHub issues are the implementation backlog.
 
-The goal is:
+## Priorities
 
-> **Grow capability without growing unnecessary complexity.**
+When tradeoffs exist, prefer in this order:
 
----
+1. Correctness and safety
+2. Simplicity and understandability
+3. Minimal change
+4. Testability and reversibility
+5. Consistency with existing code
+6. Performance, unless performance is the task
 
-## North-star principles
+## Working rules
 
-### 1. Keep the system understandable
+Before editing:
 
-A single developer should be able to read the important parts of the system and understand how they work without learning a large framework first.
+- Read the code you will change and the nearby call path.
+- Read relevant tests.
+- Understand the current behavior before proposing architecture.
+- Search for an existing implementation before adding a new one.
 
-Prefer direct code over clever code.
+While editing:
 
-Prefer explicit data flow over hidden behavior.
+- Make the smallest change that solves the actual problem.
+- Do not refactor unrelated code.
+- Reuse existing behavior where possible.
+- Match existing patterns unless they are the problem being fixed.
+- Keep behavior explicit. Avoid hidden state and magic.
+- Do not add future-proofing without a current requirement.
 
-Prefer a small number of strong invariants over many abstraction layers.
+After editing:
 
-### 2. Minimal does not mean artificially small
+- Run the narrowest relevant tests first.
+- Run the broader relevant suite when appropriate.
+- Check failure paths, not only the happy path.
+- Remove code or abstractions introduced during the task if they are not necessary.
+- Never claim a test passed unless it was actually run.
 
-Single-file and zero-dependency are not requirements.
+## Simplicity rules
 
-A dependency is acceptable when it clearly:
+Prefer:
 
-- reduces custom code,
-- improves safety,
-- or makes the implementation easier to understand.
+- small functions,
+- explicit inputs and outputs,
+- flat control flow,
+- clear data structures,
+- specific names,
+- boring code,
+- comments that explain why.
 
-Do not add a dependency for convenience alone.
+Avoid unless clearly justified:
 
-Do not rebuild a well-solved, security-sensitive primitive badly just to avoid a dependency.
-
-### 3. Do not over-engineer
-
-Never create architecture for hypothetical future requirements.
-
-Do not introduce:
-
-- factories when a function is enough,
-- interfaces with only one implementation,
+- factories for one implementation,
+- interfaces with one implementation,
 - dependency-injection frameworks,
-- event buses without a real need,
-- generic plugin systems before concrete use cases require them,
-- large inheritance hierarchies,
-- wrappers that only rename another API.
+- event buses,
+- deep inheritance,
+- generic manager/service/helper layers,
+- unnecessary async or concurrency,
+- wrappers that only rename another API,
+- speculative plugin systems,
+- broad exception swallowing.
 
-Abstract only after repeated real duplication or a real boundary appears.
+A dependency is allowed when it clearly reduces complexity or improves safety. Zero-dependency is not a goal.
 
-### 4. Prefer composition over new code
+Do not optimize for the fewest lines. Optimize for the smallest **conceptual** complexity.
 
-Before adding a capability, ask in this order:
+## Capability changes
 
-1. Can the existing system already do it?
-2. Can existing capabilities be composed?
-3. Can an existing capability be simplified or generalized slightly?
-4. Is new code actually necessary?
-
-Preferred evolution order:
+Before adding new capability code, consider in this order:
 
 ```text
 reuse → compose → simplify → refactor → add code
 ```
 
-### 5. Complexity is a regression
+Do not create a new capability when an existing one can solve the problem through composition.
 
-A change can be functionally correct and still be a bad change.
+Treat duplicate capabilities, dead code, unnecessary dependencies, and overlapping abstractions as regressions.
 
-Treat these as regressions unless clearly justified:
+## Architecture boundaries
 
-- duplicate capabilities,
-- dead code,
-- speculative abstractions,
-- unnecessary dependencies,
-- multiple ways to do the same thing,
-- growing prompts instead of fixing structure,
-- workaround layers,
-- hidden state,
-- tightly coupled modules,
-- behavior that is difficult to trace.
+The long-term protected kernel governs permissions, validation, evolution, execution limits, and rollback.
 
-Deleting code while preserving capability is often an improvement.
-
----
-
-## Architecture direction
-
-The conceptual foundation should remain small.
-
-The long-term architecture is based around a few primitives:
-
-```text
-Loop
-Journal
-Capabilities
-Policy
-Evolution
-```
-
-Do not add new fundamental primitives casually.
-
-### Protected kernel
-
-The protected kernel should remain small and human-maintained.
-
-It governs things such as:
-
-- agent loop,
-- permission/effect enforcement,
-- capability loading,
-- evolution rules,
-- execution budgets,
-- validation requirements,
-- audit and rollback guarantees.
-
-### Evolvable area
-
-The agent may eventually evolve things such as:
-
-- capabilities,
-- workflows,
-- memory behavior,
-- prompts/behavior,
-- approved dependencies.
-
-Core rule:
+The key invariant is:
 
 > **The agent may evolve implementation, but not governance.**
 
-The agent must not be able to:
+Do not introduce a path that lets agent-controlled code:
 
 - grant itself new permissions,
-- disable validation,
-- bypass rollback,
+- bypass validation,
+- weaken rollback,
 - raise protected execution limits,
-- rewrite its evaluator to make itself pass,
-- modify protected governance rules through normal self-evolution.
+- modify its evaluator to make itself pass,
+- silently expand external effects.
 
----
-
-## Evolution model
-
-Do not implement self-evolution as live self-editing.
-
-The intended flow is:
-
-```text
-capability gap
-    ↓
-smallest proposal
-    ↓
-isolated candidate
-    ↓
-policy / effect checks
-    ↓
-tests
-    ↓
-behavioral evaluation
-    ↓
-complexity check
-    ↓
-human approval when required
-    ↓
-atomic promotion
-    ↓
-observation
-    ↓
-rollback on regression
-```
-
-The live system should not be changed first and validated afterward.
-
-### Evolution ladder
-
-Always evolve at the lowest sufficient layer:
-
-```text
-L0  transient reasoning
-L1  memory / learned knowledge
-L2  workflow / composition
-L3  executable capability
-L4  dependency / runtime extension
-L5  kernel / governance
-```
-
-Do not jump directly to code generation when a lower layer is enough.
-
-L5 is not part of autonomous self-evolution.
-
----
-
-## Working method for coding agents
-
-When given a task, use this sequence.
-
-### 1. Understand the existing path first
-
-Before editing:
-
-- read the relevant code,
-- find the current data flow,
-- identify existing helpers,
-- inspect relevant tests,
-- understand the smallest boundary affected.
-
-Do not refactor unrelated code just because you noticed it.
-
-### 2. State the smallest viable change
-
-Prefer the smallest change that solves the actual problem.
-
-If the task can be solved by changing one function, do not redesign three modules.
-
-If a refactor is genuinely necessary, keep it local and explain why it is necessary for the requested behavior.
-
-### 3. Preserve existing behavior
-
-Avoid breaking working behavior unless the task explicitly requires it.
-
-When changing behavior:
-
-- add or update tests,
-- keep old behavior where still valid,
-- make migration explicit when necessary.
-
-### 4. Implement directly
-
-Favor straightforward control flow.
-
-Good:
-
-```python
-if condition:
-    do_thing()
-```
-
-Be cautious with patterns that add indirection without real value.
-
-### 5. Validate the change
-
-Run the narrowest useful tests first.
-
-Then run the broader relevant test suite.
-
-For behavior changes, test failure modes as well as happy paths.
-
-Do not claim success only because code imports.
-
-### 6. Review for unnecessary complexity
-
-Before finishing, ask:
-
-- Did I add more code than necessary?
-- Did I create a new abstraction that can be removed?
-- Did I duplicate existing behavior?
-- Did I add a dependency that can be avoided cleanly?
-- Did I make the code harder to trace?
-- Can any code now be deleted?
-
-Simplify before finishing.
-
----
+Read `docs/ARCHITECTURE.md` before changing these boundaries.
 
 ## Coding style
 
-### Prefer
-
-- small functions,
-- obvious names,
-- explicit inputs and outputs,
-- flat control flow,
-- standard library where it is sufficient,
-- small modules with one clear responsibility,
-- data structures over class hierarchies,
-- boring code,
-- comments that explain **why**, not obvious **what**.
-
-### Avoid
-
-- premature abstractions,
-- clever metaprogramming,
-- hidden magic,
-- unnecessary decorators,
-- deep inheritance,
-- unnecessary async,
-- unnecessary concurrency,
-- broad exception swallowing,
-- global mutable state without a strong reason,
-- giant manager/controller classes,
-- configuration systems more complex than the feature they configure.
-
-### Naming
-
-Use names that describe domain meaning.
-
-Prefer:
-
-```text
-capability
-candidate
-permission
-effect
-journal
-evolution
-rollback
-```
-
-over vague names such as:
-
-```text
-manager
-processor
-handler2
-utils
-helper
-engine
-service
-```
-
-when a more specific name exists.
-
-### Comments and documentation
-
-Keep comments short.
-
-Do not narrate every line.
-
-Document:
-
-- invariants,
-- security boundaries,
-- non-obvious tradeoffs,
-- reasons for intentionally simple designs.
-
----
+- Use descriptive domain names instead of vague names such as `manager`, `processor`, `helper`, or `utils` when a specific name exists.
+- Keep modules focused on one real responsibility.
+- Prefer functions and data over class hierarchies.
+- Keep comments and docstrings concise.
+- Do not duplicate information already obvious from the code.
+- Keep security and architectural invariants explicit near the code enforcing them.
 
 ## Tests
 
-Tests are part of the architecture, especially for self-evolution.
+Current test command:
 
-Prefer tests that verify observable behavior rather than implementation details.
+```bash
+python -m unittest discover tests
+```
 
-Important classes of tests include:
+For changed behavior:
 
-- normal behavior,
-- failure behavior,
-- permission boundaries,
-- rollback,
-- duplicate capability rejection,
-- execution limits,
-- regression of existing capabilities,
-- candidate isolation.
+- add or update focused tests,
+- test observable behavior rather than internal structure where possible,
+- include relevant failure cases,
+- preserve existing behavior unless the task intentionally changes it.
 
-A passing test suite is necessary but not sufficient evidence that an evolution is good.
-
-Also consider:
-
-- complexity increase,
-- duplicate functionality,
-- permission expansion,
-- behavioral regression.
-
----
-
-## Safety rules
-
-Safety should come from structural boundaries, not keyword blacklists.
-
-For privileged operations, prefer:
-
-- least privilege,
-- scoped filesystem access,
-- explicit effects,
-- timeouts,
-- execution budgets,
-- controlled credential access,
-- reversible operations where possible.
-
-Do not treat a list of blocked shell commands as a security model.
-
-Do not expose unrestricted low-level primitives when a safer high-level capability is sufficient.
-
----
-
-## Non-technical user principle
-
-The user should control:
-
-- intent,
-- permissions,
-- external effects,
-- irreversible consequences.
-
-The user should not need to understand:
-
-- Python diffs,
-- internal module layout,
-- raw shell commands,
-- framework internals.
-
-When a risky change is proposed, the system should eventually be able to explain:
-
-- what it wants to change,
-- why,
-- what permission it needs,
-- what it can affect,
-- whether it is reversible,
-- what validation passed.
-
----
+For safety/evolution work, also consider permission boundaries, candidate isolation, execution limits, rollback, and regression behavior.
 
 ## Scope discipline
 
-Do not turn unrelated observations into extra work.
+If you discover another issue while working:
 
-If you discover a separate problem:
+- fix it only if it blocks the task or creates an immediate correctness/safety problem,
+- otherwise leave it for a separate issue.
 
-- fix it only if it blocks the requested change or creates a clear correctness/safety issue,
-- otherwise leave it for a dedicated issue.
+Do not combine broad cleanup with an unrelated behavior change.
 
-Avoid broad cleanup PRs mixed with behavior changes.
+## Final check
 
-Small, reviewable changes are preferred.
+Before finishing, ask:
 
----
-
-## Current repository reality
-
-The current implementation is still a small coding-agent foundation.
-
-Do not pretend the future architecture already exists.
-
-Evolve the codebase incrementally toward the target architecture.
-
-Do not perform a large rewrite only to make the folder structure match a diagram.
-
-Architecture should emerge from real boundaries as they become necessary.
-
----
-
-## Decision rule
-
-When multiple implementations are possible, choose the one that is:
-
-1. correct,
-2. safe,
-3. easiest to understand,
-4. easiest to remove or change later,
-5. smallest in conceptual complexity.
-
-Not the one with the most abstraction or the fewest raw lines.
-
----
-
-## Final checklist
-
-Before completing a change, verify:
-
-- [ ] I understood the existing implementation before editing.
-- [ ] This is the smallest reasonable change.
-- [ ] I reused existing behavior where possible.
-- [ ] I did not add speculative abstractions.
-- [ ] New dependencies are justified.
-- [ ] Safety boundaries were not weakened.
-- [ ] Relevant tests pass.
-- [ ] Failure cases were considered.
-- [ ] The change is easy to understand.
-- [ ] I removed unnecessary code introduced during implementation.
-- [ ] The result moves Nunnuncode toward **more capability without unnecessary complexity**.
+- Is this the smallest reasonable solution?
+- Did I add an abstraction that can be removed?
+- Did I duplicate existing behavior?
+- Is every new dependency justified?
+- Did I weaken a safety boundary?
+- Are the relevant tests actually passing?
+- Is the result easier, not harder, for one person to understand?
