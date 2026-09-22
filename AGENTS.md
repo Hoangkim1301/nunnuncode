@@ -12,10 +12,16 @@ It is a minimal foundation agent for non-technical users. The goal is to increas
 
 The repository is still early. Do not pretend the target architecture already exists, and do not rewrite the project just to match a future diagram.
 
-For deeper context:
-- Architecture and design invariants: `docs/ARCHITECTURE.md`
-- Development roadmap: `docs/ROADMAP.md`
-- GitHub issues are the implementation backlog.
+## Documentation map
+
+Use each project document for one purpose:
+
+- `AGENTS.md` tells coding agents **how to work** in this repository.
+- `docs/ARCHITECTURE.md` explains **how the system should work** and defines design invariants.
+- `docs/ROADMAP.md` explains **where the system is going** and the intended implementation sequence.
+- GitHub issues describe **what concrete work should be done next**.
+
+Do not duplicate large sections between these documents. Keep `AGENTS.md` concise and actionable; move deeper design rationale or future plans into the appropriate document.
 
 ## Priorities
 
