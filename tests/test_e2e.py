@@ -1,9 +1,11 @@
-import json, os, subprocess, sys, tempfile, threading, unittest
+import json, os, shutil, subprocess, sys, tempfile, threading, unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-NANO = REPO / "nanocode.py"
+PKG = REPO / "nunnuncode"
+NANO = PKG / "nunnuncode.py"
+sys.path.insert(0, str(PKG))
 
 LOG = []
 
@@ -42,12 +44,12 @@ def start_server(message_for_body):
 
 def run_isolated(stdin_text, env_extra):
     with tempfile.TemporaryDirectory() as tmp:
-        script = Path(tmp) / "nanocode.py"
-        script.write_text(NANO.read_text(encoding="utf-8"), encoding="utf-8")
-        return run_nanocode(stdin_text, env_extra, script=script)
+        shutil.copytree(PKG, Path(tmp) / "nunnuncode")
+        script = Path(tmp) / "nunnuncode" / "nunnuncode.py"
+        return run_nanocode(stdin_text, env_extra, script=script, cwd=Path(tmp))
 
 
-def run_nanocode(stdin_text, env_extra, script=None):
+def run_nanocode(stdin_text, env_extra, script=None, cwd=None):
     script = script or NANO
     env = dict(os.environ)
     for var in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "MODEL", "API_BASE_URL", "API_KEY", "CONTEXT_WINDOW"):
@@ -59,7 +61,7 @@ def run_nanocode(stdin_text, env_extra, script=None):
         input=stdin_text.encode(),
         capture_output=True,
         env=env,
-        cwd=str(script.parent),
+        cwd=str(cwd or script.parent),
     )
     return proc.returncode, proc.stdout.decode("utf-8", "replace"), proc.stderr.decode("utf-8", "replace")
 
@@ -175,7 +177,7 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
 
 class TestDotenv(unittest.TestCase):
     def test_parses_and_does_not_override_existing_vars(self):
-        import nanocode
+        import config
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
@@ -189,7 +191,7 @@ class TestDotenv(unittest.TestCase):
             )
             os.environ["NANO_TEST_A"] = "preexisting"
             try:
-                nanocode.load_dotenv(path)
+                config.load_dotenv(path)
                 self.assertEqual(os.environ["NANO_TEST_A"], "preexisting")
                 self.assertEqual(os.environ["NANO_TEST_B"], "quoted")
                 self.assertEqual(os.environ["NANO_TEST_C"], "single")
@@ -198,9 +200,9 @@ class TestDotenv(unittest.TestCase):
                     os.environ.pop(var, None)
 
     def test_missing_file_is_noop(self):
-        import nanocode
+        import config
 
-        nanocode.load_dotenv(Path("/nonexistent/.env"))
+        config.load_dotenv(Path("/nonexistent/.env"))
 
 
 if __name__ == "__main__":

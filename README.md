@@ -162,14 +162,14 @@ The detailed roadmap lives in [Epic #1](https://github.com/Hoangkim1301/nunnunco
 
 ```bash
 export ANTHROPIC_API_KEY="your-key"
-python nanocode.py
+python nunnuncode/nunnuncode.py
 ```
 
 ### OpenRouter
 
 ```bash
 export OPENROUTER_API_KEY="your-key"
-python nanocode.py
+python nunnuncode/nunnuncode.py
 ```
 
 To use a different model:
@@ -177,7 +177,7 @@ To use a different model:
 ```bash
 export OPENROUTER_API_KEY="your-key"
 export MODEL="openai/gpt-5.2"
-python nanocode.py
+python nunnuncode/nunnuncode.py
 ```
 
 ### Custom OpenAI-compatible provider
@@ -186,7 +186,7 @@ python nanocode.py
 export API_BASE_URL="https://your-provider.example/v1"
 export API_KEY="your-key"
 export MODEL="your-model-name"
-python nanocode.py
+python nunnuncode/nunnuncode.py
 ```
 
 ### Tests
