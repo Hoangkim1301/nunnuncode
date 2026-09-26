@@ -34,7 +34,9 @@ def render_markdown(text):
 
 
 def confirm_capability(name, args):
-    target = args.get("path", "")
+    target = args.get("path")
+    if target is None:
+        target = " ".join(repr(value) for value in args.get("argv", []))
     try:
         answer = input(f"Allow {name} for {target}? [y/N] ").strip().lower()
     except (EOFError, KeyboardInterrupt):
