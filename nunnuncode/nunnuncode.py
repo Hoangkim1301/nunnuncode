@@ -18,7 +18,7 @@ from config import (
     YELLOW,
 )
 from llm import call_api, is_context_error, trim_messages
-from tools import run_tool
+from kernel import ExecutionBudget, Kernel
 
 
 def separator():
@@ -31,6 +31,15 @@ def separator():
 
 def render_markdown(text):
     return re.sub(r"\*\*(.+?)\*\*", f"{BOLD}\\1{RESET}", text)
+
+
+def confirm_capability(name, args):
+    target = args.get("path", "")
+    try:
+        answer = input(f"Allow {name} for {target}? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return False
+    return answer in ("y", "yes")
 
 
 def render_usage(usage):
@@ -80,9 +89,21 @@ def main():
             # agentic loop: keep calling API until no more tool calls
             usage = None
             context_retries = 0
+            budget = ExecutionBudget()
+            kernel = Kernel(os.getcwd(), budget=budget, confirm=confirm_capability)
             while True:
+                if not budget.consume_step():
+                    print(f"{YELLOW}⏹ Terminated: {budget.termination_reason}{RESET}")
+                    break
+                if not budget.check():
+                    print(f"{YELLOW}⏹ Terminated: {budget.termination_reason}{RESET}")
+                    break
                 try:
-                    response = call_api(messages, system_prompt)
+                    response = call_api(
+                        messages,
+                        system_prompt,
+                        timeout=budget.remaining_seconds,
+                    )
                 except RuntimeError as err:
                     trimmed = trim_messages(messages)
                     if context_retries >= 3 or not is_context_error(err) or trimmed is None:
@@ -91,9 +112,15 @@ def main():
                     messages = trimmed
                     print(f"{YELLOW}⏺ context full — trimmed history, retry {context_retries}/3{RESET}")
                     continue
+                except (OSError, TimeoutError, ValueError):
+                    if not budget.check():
+                        print(f"{YELLOW}⏹ Terminated: {budget.termination_reason}{RESET}")
+                        break
+                    raise
                 content_blocks = response.get("content", [])
                 usage = response.get("usage")
                 tool_results = []
+                has_tool_use = any(block["type"] == "tool_use" for block in content_blocks)
 
                 for block in content_blocks:
                     if block["type"] == "thinking":
@@ -102,7 +129,9 @@ def main():
                         print(f"\n{DIM}</... thinking ... {thinking_text}\n>{RESET}")
 
                     if block["type"] == "text":
-                        print(f"\n{CYAN}⏺{RESET} {render_markdown(block['text'])}")
+                        label = "Commentary:" if has_tool_use else "Answer:"
+                        color = DIM if has_tool_use else CYAN
+                        print(f"\n{color}{label}{RESET} {render_markdown(block['text'])}")
 
                     if block["type"] == "tool_use":
                         tool_name = block["name"]
@@ -112,7 +141,7 @@ def main():
                             f"\n{GREEN}⏺ {tool_name.capitalize()}{RESET}({DIM}{arg_preview}{RESET})"
                         )
 
-                        result = run_tool(tool_name, tool_args)
+                        result = kernel.dispatch(tool_name, tool_args)
                         result_lines = result.split("\n")
                         preview = result_lines[0][:60]
                         if len(result_lines) > 1:
@@ -128,9 +157,16 @@ def main():
                                 "content": result,
                             }
                         )
+                        if kernel.termination_reason:
+                            print(
+                                f"{YELLOW}⏹ Terminated: {kernel.termination_reason}{RESET}"
+                            )
+                            break
 
                 messages.append({"role": "assistant", "content": content_blocks})
 
+                if kernel.termination_reason:
+                    break
                 if not tool_results:
                     break
                 messages.append({"role": "user", "content": tool_results})

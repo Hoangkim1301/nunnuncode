@@ -1,5 +1,6 @@
-"""nunnuncode - agent tools"""
+"""nunnuncode - agent capabilities."""
 
+from dataclasses import dataclass
 import glob as globlib, os, re, subprocess
 
 from config import DIM, RESET
@@ -9,7 +10,8 @@ from config import DIM, RESET
 
 
 def read(args):
-    lines = open(args["path"]).readlines()
+    with open(args["path"]) as stream:
+        lines = stream.readlines()
     offset = args.get("offset", 0)
     limit = args.get("limit", len(lines))
     selected = lines[offset : offset + limit]
@@ -23,7 +25,8 @@ def write(args):
 
 
 def edit(args):
-    text = open(args["path"]).read()
+    with open(args["path"]) as stream:
+        text = stream.read()
     old, new = args["old"], args["new"]
     if old not in text:
         return "error: old_string not found"
@@ -54,9 +57,10 @@ def grep(args):
     hits = []
     for filepath in globlib.glob(args.get("path", ".") + "/**", recursive=True):
         try:
-            for line_num, line in enumerate(open(filepath), 1):
-                if pattern.search(line):
-                    hits.append(f"{filepath}:{line_num}:{line.rstrip()}")
+            with open(filepath) as stream:
+                for line_num, line in enumerate(stream, 1):
+                    if pattern.search(line):
+                        hits.append(f"{filepath}:{line_num}:{line.rstrip()}")
         except Exception:
             pass
     return "\n".join(hits[:50]) or "none"
@@ -84,52 +88,68 @@ def bash(args):
     return "".join(output_lines).strip() or "(empty)"
 
 
-# --- Tool definitions: (description, schema, function) ---
+@dataclass(frozen=True)
+class CapabilityDefinition:
+    """Fixed metadata consumed by the protected kernel."""
 
-TOOLS = {
-    "read": (
+    description: str
+    parameters: dict
+    handler: object
+    permission: str
+    path_fields: tuple = ()
+    pattern_fields: tuple = ()
+    confirmation_required: bool = False
+
+
+# This is the normal model-visible capability set.  In particular, bash is not
+# registered here, so it cannot be reached through the kernel or provider schema.
+CAPABILITIES = {
+    "read": CapabilityDefinition(
         "Read file with line numbers (file path, not directory)",
         {"path": "string", "offset": "number?", "limit": "number?"},
         read,
+        "workspace.read",
+        path_fields=("path",),
     ),
-    "write": (
-        "Write content to file",
+    "write": CapabilityDefinition(
+        "Write content to a workspace file (requires confirmation)",
         {"path": "string", "content": "string"},
         write,
+        "workspace.write",
+        path_fields=("path",),
+        confirmation_required=True,
     ),
-    "edit": (
-        "Replace old with new in file (old must be unique unless all=true)",
+    "edit": CapabilityDefinition(
+        "Replace old with new in a workspace file (requires confirmation)",
         {"path": "string", "old": "string", "new": "string", "all": "boolean?"},
         edit,
+        "workspace.write",
+        path_fields=("path",),
+        confirmation_required=True,
     ),
-    "glob": (
-        "Find files by pattern, sorted by mtime",
+    "glob": CapabilityDefinition(
+        "Find workspace files by pattern, sorted by mtime",
         {"pat": "string", "path": "string?"},
         glob,
+        "workspace.read",
+        path_fields=("path",),
+        pattern_fields=("pat",),
     ),
-    "grep": (
-        "Search files for regex pattern",
+    "grep": CapabilityDefinition(
+        "Search workspace files for a regex pattern",
         {"pat": "string", "path": "string?"},
         grep,
-    ),
-    "bash": (
-        "Run shell command",
-        {"cmd": "string"},
-        bash,
+        "workspace.read",
+        path_fields=("path",),
     ),
 }
 
 
-def run_tool(name, args):
-    try:
-        return TOOLS[name][2](args)
-    except Exception as err:
-        return f"error: {err}"
-
-
 def tool_specs():
     specs = {}
-    for name, (description, params, _fn) in TOOLS.items():
+    for name, capability in CAPABILITIES.items():
+        description = capability.description
+        params = capability.parameters
         properties = {}
         required = []
         for param_name, param_type in params.items():

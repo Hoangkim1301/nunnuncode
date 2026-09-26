@@ -56,9 +56,9 @@ def to_openai_messages(messages):
     return result
 
 
-def call_api(messages, system_prompt):
+def call_api(messages, system_prompt, timeout=None):
     if API_FORMAT == "openai":
-        return call_api_openai(messages, system_prompt)
+        return call_api_openai(messages, system_prompt, timeout=timeout)
     body = {
         "model": MODEL,
         "max_tokens": MAX_TOKENS,
@@ -80,13 +80,13 @@ def call_api(messages, system_prompt):
         },
     )
     try:
-        response = urllib.request.urlopen(request)
+        response = urllib.request.urlopen(request, timeout=timeout)
     except urllib.error.HTTPError as err:
         raise RuntimeError(f"HTTP {err.code}: {err.read().decode(errors='replace')[:500]}") from err
     return json.loads(response.read())
 
 
-def call_api_openai(messages, system_prompt):
+def call_api_openai(messages, system_prompt, timeout=None):
     body = {
         "model": MODEL,
         "max_tokens": MAX_TOKENS,
@@ -104,7 +104,7 @@ def call_api_openai(messages, system_prompt):
         API_URL, data=json.dumps(body).encode(), headers=headers
     )
     try:
-        response = urllib.request.urlopen(request)
+        response = urllib.request.urlopen(request, timeout=timeout)
     except urllib.error.HTTPError as err:
         raise RuntimeError(f"HTTP {err.code}: {err.read().decode(errors='replace')[:500]}") from err
     response = json.loads(response.read())

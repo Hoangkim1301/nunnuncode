@@ -81,7 +81,10 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
                     {
                         "id": "call_1",
                         "type": "function",
-                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "echo hello"})},
+                        "function": {
+                            "name": "glob",
+                            "arguments": json.dumps({"path": ".", "pat": "nunnuncode.py"}),
+                        },
                     }
                 ],
             }
@@ -111,13 +114,113 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
         roles = [m["role"] for m in r2["body"]["messages"]]
         self.assertEqual(roles, ["system", "user", "assistant", "tool"])
         self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["id"], "call_1")
-        self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["function"]["name"], "bash")
+        self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["function"]["name"], "glob")
         self.assertEqual(r2["body"]["messages"][3]["tool_call_id"], "call_1")
 
-        self.assertIn("hello", out)
+        self.assertIn("nanocode", out)
         self.assertIn("Done. The answer is 4.", out)
         self.assertIn(f"custom http://127.0.0.1:{port}/v1", out)
         self.assertIn("tokens 100 in / 20 out", out)
+
+    def test_intermediate_text_is_commentary_and_final_text_is_answer(self):
+        def message_for_body(body):
+            has_tool_result = any(m.get("role") == "tool" for m in body["messages"])
+            if has_tool_result:
+                return {"content": "Final answer.", "tool_calls": []}
+            return {
+                "content": "I will inspect the workspace first.",
+                "tool_calls": [
+                    {
+                        "id": "call_commentary",
+                        "type": "function",
+                        "function": {
+                            "name": "glob",
+                            "arguments": json.dumps({"path": ".", "pat": "nunnuncode.py"}),
+                        },
+                    }
+                ],
+            }
+
+        server = start_server(message_for_body)
+        port = server.server_address[1]
+        code, out, _err = run_isolated(
+            "inspect the workspace\n",
+            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
+        )
+        server.shutdown()
+        server.server_close()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(LOG), 2)
+        self.assertEqual(
+            [message["role"] for message in LOG[0]["body"]["messages"]],
+            ["system", "user"],
+        )
+        self.assertEqual(
+            [message["role"] for message in LOG[1]["body"]["messages"]],
+            ["system", "user", "assistant", "tool"],
+        )
+        self.assertIn("Commentary:", out)
+        self.assertIn("I will inspect the workspace first.", out)
+        self.assertIn("Answer:", out)
+        self.assertIn("Final answer.", out)
+        self.assertLess(out.index("Commentary:"), out.index("Answer:"))
+
+    def test_model_cannot_invoke_unlisted_shell(self):
+        def message_for_body(body):
+            if any(m.get("role") == "tool" for m in body["messages"]):
+                return {"content": "Shell was unavailable.", "tool_calls": []}
+            return {
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call_shell",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "echo unsafe"})},
+                    }
+                ],
+            }
+
+        server = start_server(message_for_body)
+        port = server.server_address[1]
+        code, out, _err = run_isolated(
+            "run shell\n",
+            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
+        )
+        server.shutdown()
+        server.server_close()
+        self.assertEqual(code, 0)
+        self.assertIn("capability unavailable", out)
+        self.assertIn("Shell was unavailable.", out)
+
+    def test_model_is_terminated_when_step_budget_is_exhausted(self):
+        def message_for_body(body):
+            return {
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"call_{index}",
+                        "type": "function",
+                        "function": {
+                            "name": "glob",
+                            "arguments": json.dumps({"path": ".", "pat": "nunnuncode.py"}),
+                        },
+                    }
+                    for index in range(30)
+                ],
+            }
+
+        server = start_server(message_for_body)
+        port = server.server_address[1]
+        code, out, _err = run_isolated(
+            "use many tools\n",
+            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
+        )
+        server.shutdown()
+        server.server_close()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(LOG), 1)
+        self.assertIn("Terminated:", out)
+        self.assertIn("step limit exceeded", out)
 
     def test_sliding_window_on_context_overflow(self):
         def message_for_body(body):
