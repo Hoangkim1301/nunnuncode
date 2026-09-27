@@ -251,6 +251,37 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
         self.assertNotIn("Answer 2", out)
         self.assertIn("trimmed history", out)
         self.assertEqual(len(LOG), 3)
+        retry_users = [
+            message
+            for message in LOG[2]["body"]["messages"]
+            if message.get("role") == "user"
+        ]
+        self.assertEqual(len(retry_users), 1)
+        self.assertIn("second question", retry_users[0]["content"])
+        self.assertIn("[context checkpoint: earlier history omitted]", retry_users[0]["content"])
+
+    def test_manual_compact_does_not_clear_canonical_history(self):
+        def message_for_body(body):
+            return {"content": f"Answer {len(LOG)}", "tool_calls": []}
+
+        server = start_server(message_for_body)
+        port = server.server_address[1]
+        code, out, _err = run_isolated(
+            "first question\n/compact\nsecond question\n/q\n",
+            {
+                "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
+                "API_KEY": "test-key",
+                "MODEL": "test-model",
+            },
+        )
+        server.shutdown()
+        server.server_close()
+        self.assertEqual(code, 0)
+        self.assertEqual(len(LOG), 2)
+        second_request = json.dumps(LOG[1]["body"]["messages"], ensure_ascii=False)
+        self.assertIn("second question", second_request)
+        self.assertIn("[context checkpoint: earlier history omitted]", second_request)
+        self.assertIn("Compacted conversation", out)
 
     def test_usage_percent_with_context_window(self):
         def message_for_body(body):
@@ -264,13 +295,13 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
                 "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
                 "API_KEY": "test-key",
                 "MODEL": "test-model",
-                "CONTEXT_WINDOW": "1000",
+                "CONTEXT_WINDOW": "10000",
             },
         )
         server.shutdown()
         server.server_close()
         self.assertEqual(code, 0)
-        self.assertIn("◔ ctx 120/1,000 (12.00%)", out)
+        self.assertIn("◔ ctx 120/10,000 (1.20%)", out)
 
     def test_model_required_with_custom_base_url(self):
         code, _out, err = run_isolated("hi\n", {"API_BASE_URL": "http://127.0.0.1:9/v1"})

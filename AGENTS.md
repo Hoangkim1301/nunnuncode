@@ -128,6 +128,7 @@ Read `docs/ARCHITECTURE.md` before changing these boundaries.
 - Keep comments and docstrings concise.
 - Do not duplicate information already obvious from the code.
 - Keep security and architectural invariants explicit near the code enforcing them.
+- Do not over engineering anything, keep it minimal, simple, and straightforward since the goal is a tiny self-improving agent.
 
 ## Tests
 

@@ -17,7 +17,14 @@ from config import (
     RESET,
     YELLOW,
 )
-from llm import call_api, is_context_error, trim_messages
+from llm import (
+    ContextProjectionError,
+    call_api,
+    compact_messages,
+    context_size,
+    is_context_error,
+    rebuild_context,
+)
 from kernel import ExecutionBudget, Kernel
 
 
@@ -65,6 +72,7 @@ def render_usage(usage):
 def main():
     print(f"{BOLD}nanocode{RESET} | {DIM}{MODEL} ({PROVIDER}) | {os.getcwd()}{RESET}\n")
     messages = []
+    manual_compact = False
     system_prompt = f"You are a mini coding agent assistant. Your task is to assist with coding tasks and self detect improve your own harness. cwd: {os.getcwd()}"
 
     while True:
@@ -82,15 +90,14 @@ def main():
                 continue
 
             if user_input == "/compact":
-                messages = []
-                print(f"{GREEN}⏺ WIP: Compacted conversation coming soon{RESET}")
+                manual_compact = True
+                print(f"{GREEN}Compacted conversation; canonical history retained{RESET}")
                 continue
 
             messages.append({"role": "user", "content": user_input})
 
             # agentic loop: keep calling API until no more tool calls
             usage = None
-            context_retries = 0
             budget = ExecutionBudget()
             kernel = Kernel(os.getcwd(), budget=budget, confirm=confirm_capability)
             while True:
@@ -100,20 +107,47 @@ def main():
                 if not budget.check():
                     print(f"{YELLOW}⏹ Terminated: {budget.termination_reason}{RESET}")
                     break
+                active_messages = compact_messages(
+                    messages,
+                    system_prompt=system_prompt,
+                    force=manual_compact,
+                )
+                manual_compact = False
                 try:
                     response = call_api(
-                        messages,
+                        active_messages,
                         system_prompt,
                         timeout=budget.remaining_seconds,
                     )
                 except RuntimeError as err:
-                    trimmed = trim_messages(messages)
-                    if context_retries >= 3 or not is_context_error(err) or trimmed is None:
+                    if not is_context_error(err):
                         raise
-                    context_retries += 1
-                    messages = trimmed
-                    print(f"{YELLOW}⏺ context full — trimmed history, retry {context_retries}/3{RESET}")
-                    continue
+                    try:
+                        rebuilt = rebuild_context(
+                            messages,
+                            system_prompt=system_prompt,
+                        )
+                    except ContextProjectionError as projection_error:
+                        raise RuntimeError(str(projection_error)) from err
+                    if context_size(rebuilt, system_prompt) >= context_size(
+                        active_messages, system_prompt
+                    ):
+                        raise RuntimeError(
+                            "provider context limit exceeded; rebuilt context was not smaller"
+                        ) from err
+                    print("context full - trimmed history, retry 1/1")
+                    try:
+                        response = call_api(
+                            rebuilt,
+                            system_prompt,
+                            timeout=budget.remaining_seconds,
+                        )
+                    except RuntimeError as retry_error:
+                        if is_context_error(retry_error):
+                            raise RuntimeError(
+                                "provider context limit exceeded after one compaction retry"
+                            ) from retry_error
+                        raise
                 except (OSError, TimeoutError, ValueError):
                     if not budget.check():
                         print(f"{YELLOW}⏹ Terminated: {budget.termination_reason}{RESET}")
