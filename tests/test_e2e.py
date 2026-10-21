@@ -65,8 +65,13 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
                     {
                         "id": "call_1",
                         "type": "function",
-                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "echo hello"})},
-                    }
+                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "echo hello 1>&2"})},
+                    },
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "exit"})},
+                    },
                 ],
             }
 
@@ -95,10 +100,13 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
         self.assertIn("parameters", tool0["function"])
 
         roles = [m["role"] for m in r2["body"]["messages"]]
-        self.assertEqual(roles, ["system", "user", "assistant", "tool"])
+        self.assertEqual(roles, ["system", "user", "assistant", "tool", "tool"])
         self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["id"], "call_1")
         self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["function"]["name"], "bash")
         self.assertEqual(r2["body"]["messages"][3]["tool_call_id"], "call_1")
+        self.assertIn("hello", r2["body"]["messages"][3]["content"])
+        self.assertEqual(r2["body"]["messages"][4]["tool_call_id"], "call_2")
+        self.assertEqual(r2["body"]["messages"][4]["content"], "(empty)")
 
         self.assertIn("hello", out)
         self.assertIn("Done. The answer is 4.", out)
@@ -144,6 +152,30 @@ class TestDotenv(unittest.TestCase):
 
         nanocode.load_dotenv(Path("/nonexistent/.env"))
 
+
+class TestBashOnlyTool(unittest.TestCase):
+    def test_anthropic_schema_contains_only_bash(self):
+        import nanocode
+
+        tools = nanocode.make_schema()
+        self.assertEqual([tool["name"] for tool in tools], ["bash"])
+        self.assertEqual(tools[0]["input_schema"]["properties"], {"cmd": {"type": "string"}})
+        self.assertEqual(tools[0]["input_schema"]["required"], ["cmd"])
+
+    def test_openai_schema_contains_only_bash(self):
+        import nanocode
+
+        tools = nanocode.make_openai_schema()
+        functions = [tool["function"] for tool in tools]
+        self.assertEqual([tool["name"] for tool in functions], ["bash"])
+        self.assertEqual(functions[0]["parameters"]["properties"], {"cmd": {"type": "string"}})
+        self.assertEqual(functions[0]["parameters"]["required"], ["cmd"])
+
+    def test_removed_tool_name_is_not_dispatched(self):
+        import nanocode
+
+        result = nanocode.run_tool("glob", {"pat": "*.py"})
+        self.assertTrue(result.startswith("error:"))
 
 if __name__ == "__main__":
     unittest.main()
