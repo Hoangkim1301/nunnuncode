@@ -4,7 +4,7 @@
 
 > Dự án cá nhân để tự học về cách coding agent hoạt động — bắt đầu từ việc đọc code, rồi tự viết lại từ đầu.
 
-Micro Coding Agent. Một file Python duy nhất, zero dependencies, ~250 dòng.
+Micro Coding Agent. Một file Python duy nhất, zero dependencies.
 
 ![screenshot](screenshot.png)
 
@@ -14,8 +14,7 @@ Micro Coding Agent. Một file Python duy nhất, zero dependencies, ~250 dòng.
 
 ## Tính năng
 
-- Agent loop đầy đủ với tool use
-- Tools: `read`, `write`, `edit`, `glob`, `grep`, `bash`
+- Agent loop đầy đủ với duy nhất một tool: `bash`
 - Lịch sử hội thoại
 - Output màu trên terminal
 - Một file duy nhất, zero dependencies
@@ -72,28 +71,23 @@ python -m unittest discover tests
 | `/c` | Xóa hội thoại |
 | `/q` hoặc `exit` | Thoát |
 
-## Công cụ
+## Tool
 
 | Tool | Mô tả |
 |------|-------|
-| `read` | Đọc file kèm số dòng, offset/limit |
-| `write` | Ghi nội dung vào file |
-| `edit` | Thay chuỗi trong file (phải duy nhất) |
-| `glob` | Tìm file theo mẫu, sắp xếp theo mtime |
-| `grep` | Tìm regex trong files |
 | `bash` | Chạy lệnh shell |
 
 ## Ví dụ
 
 ```
 ────────────────────────────────────────
-❯ what files are here?
+❯ nói xin chào
 ────────────────────────────────────────
 
-⏺ Glob(**/*.py)
-  ⎿  nanocode.py
+⏺ Bash(echo hello)
+  ⎿  hello
 
-⏺ There's one Python file: nanocode.py
+⏺ Xin chào!
 ```
 
 ## Ghi chú học tập
@@ -101,15 +95,11 @@ python -m unittest discover tests
 Những gì tôi học được khi xây dự án này:
 
 - **Agent loop chỉ là một vòng lặp while**: gửi tin nhắn → LLM trả lời bằng tool calls → chạy tools → gửi kết quả lại → lặp lại cho đến khi không còn tool call.
-- **Tool chỉ là JSON schema + hàm Python**: LLM không bao giờ "thấy" code, chỉ thấy schema.
-- **Thiết kế ràng buộc quan trọng hơn chọn model**: bắt `edit` phải khớp duy nhất giúp tránh hầu hết lỗi hỏng file.
+- **Model chỉ thấy tool schema, không thấy phần triển khai Python**: Agent này chỉ cung cấp một schema cho `bash`.
 
 ## Định hướng
 
-- [ ] Custom API base URL (mọi provider Anthropic-compatible)
-- [x] Hỗ trợ provider OpenAI-compatible
-- [ ] Lưu hội thoại
-- [ ] Tool web fetch
+Giữ agent trong một file Python với duy nhất một tool cho model: `bash`. Các thay đổi sau này chỉ tập trung vào tính đúng đắn và khả năng tương thích của agent loop và shell; không có kế hoạch thêm tool hay subsystem tính năng.
 
 ## Lời cảm ơn
 

@@ -4,7 +4,7 @@
 
 > A personal project for learning how coding agents work — built by reading code, then rewriting it from scratch.
 
-Micro Coding Agent. Single Python file, zero dependencies, ~250 lines.
+Micro Coding Agent. Single Python file, zero dependencies.
 
 ![screenshot](screenshot.png)
 
@@ -14,8 +14,7 @@ This is my self-learning playground for **self-developed coding agents**. I star
 
 ## Features
 
-- Full agentic loop with tool use
-- Tools: `read`, `write`, `edit`, `glob`, `grep`, `bash`
+- Full agent loop with one model-facing tool: `bash`
 - Conversation history
 - Colored terminal output
 - Single file, zero dependencies
@@ -72,28 +71,23 @@ python -m unittest discover tests
 | `/c` | Clear conversation |
 | `/q` or `exit` | Quit |
 
-## Tools
+## Tool
 
 | Tool | Description |
 |------|-------------|
-| `read` | Read file with line numbers, offset/limit |
-| `write` | Write content to file |
-| `edit` | Replace string in file (must be unique) |
-| `glob` | Find files by pattern, sorted by mtime |
-| `grep` | Search files for regex |
-| `bash` | Run shell command |
+| `bash` | Run a shell command |
 
 ## Example
 
 ```
 ────────────────────────────────────────
-❯ what files are here?
+❯ say hello
 ────────────────────────────────────────
 
-⏺ Glob(**/*.py)
-  ⎿  nanocode.py
+⏺ Bash(echo hello)
+  ⎿  hello
 
-⏺ There's one Python file: nanocode.py
+⏺ Hello!
 ```
 
 ## Learning notes
@@ -101,15 +95,11 @@ python -m unittest discover tests
 Things I learned while building this:
 
 - **The agent loop is just a while loop**: send messages → LLM replies with tool calls → run tools → send results back → repeat until no tool calls.
-- **Tools are just JSON schemas + Python functions**: the LLM never "sees" the code, only the schema.
-- **Constraint design matters more than model choice**: making `edit` require a unique match prevents most file-corruption bugs.
+- **The model sees a tool schema, not its Python implementation**: this agent exposes only one schema, for `bash`.
 
 ## Roadmap
 
-- [ ] Custom API base URL (any Anthropic-compatible provider)
-- [x] OpenAI-compatible provider support
-- [ ] Conversation persistence
-- [ ] Web fetch tool
+Keep the agent in one Python file with one model-facing tool: `bash`. Future changes are limited to correctness and portability of the agent loop and shell execution; adding more tools or feature subsystems is not planned.
 
 ## Credits
 

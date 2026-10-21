@@ -4,7 +4,7 @@
 
 > Ein persönliches Projekt, um zu lernen, wie Coding-Agenten funktionieren — vom Code lesen bis zum eigenen Nachbau von Grund auf.
 
-Micro Coding Agent. Eine einzige Python-Datei, null Abhängigkeiten, ~250 Zeilen.
+Micro Coding Agent. Eine einzige Python-Datei, null Abhängigkeiten.
 
 ![screenshot](screenshot.png)
 
@@ -14,8 +14,7 @@ Dies ist mein Lern-Sandkasten für **selbstentwickelte Coding-Agenten**. Ich hab
 
 ## Funktionen
 
-- Volle Agenten-Schleife mit Tool-Nutzung
-- Tools: `read`, `write`, `edit`, `glob`, `grep`, `bash`
+- Vollständige Agenten-Schleife mit genau einem Tool: `bash`
 - Konversationshistorie
 - Farbige Terminal-Ausgabe
 - Eine Datei, null Abhängigkeiten
@@ -72,28 +71,23 @@ python -m unittest discover tests
 | `/c` | Gespräch leeren |
 | `/q` oder `exit` | Beenden |
 
-## Werkzeuge
+## Tool
 
 | Tool | Beschreibung |
 |------|--------------|
-| `read` | Datei mit Zeilennummern lesen, offset/limit |
-| `write` | Inhalt in Datei schreiben |
-| `edit` | String in Datei ersetzen (muss eindeutig sein) |
-| `glob` | Dateien nach Muster finden, nach mtime sortiert |
-| `grep` | Dateien nach Regex durchsuchen |
 | `bash` | Shell-Befehl ausführen |
 
 ## Beispiel
 
 ```
 ────────────────────────────────────────
-❯ what files are here?
+❯ sag hallo
 ────────────────────────────────────────
 
-⏺ Glob(**/*.py)
-  ⎿  nanocode.py
+⏺ Bash(echo hello)
+  ⎿  hello
 
-⏺ There's one Python file: nanocode.py
+⏺ Hallo!
 ```
 
 ## Lernnotizen
@@ -101,15 +95,11 @@ python -m unittest discover tests
 Was ich beim Bauen gelernt habe:
 
 - **Die Agenten-Schleife ist einfach eine while-Schleife**: Nachrichten senden → LLM antwortet mit Tool-Calls → Tools ausführen → Ergebnisse zurücksenden → wiederholen, bis keine Tool-Calls mehr kommen.
-- **Tools sind nur JSON-Schemas + Python-Funktionen**: Das LLM "sieht" nie den Code, nur das Schema.
-- **Constraint-Design zählt mehr als die Modellauswahl**: `edit` eine eindeutige Übereinstimmung zu verlangen, verhindert die meisten Datei-Korruptionsfehler.
+- **Das Modell sieht ein Tool-Schema, nicht die Python-Implementierung**: Dieser Agent stellt nur ein Schema für `bash` bereit.
 
 ## Ausblick
 
-- [ ] Eigene API-Basis-URL (jeder Anthropic-kompatible Provider)
-- [x] Unterstützung für OpenAI-kompatible Provider
-- [ ] Konversations-Persistenz
-- [ ] Web-Fetch-Tool
+Der Agent bleibt in einer Python-Datei mit genau einem modellseitigen Tool: `bash`. Künftige Änderungen beschränken sich auf Korrektheit und Portabilität der Agenten-Schleife und der Shell-Ausführung. Weitere Tools oder Funktionsbereiche sind nicht geplant.
 
 ## Danksagung
 
