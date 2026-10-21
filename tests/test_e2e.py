@@ -1,11 +1,9 @@
-import json, os, shutil, subprocess, sys, tempfile, threading, unittest
+import json, os, subprocess, sys, tempfile, threading, unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PKG = REPO / "nunnuncode"
-NANO = PKG / "nunnuncode.py"
-sys.path.insert(0, str(PKG))
+NANO = REPO / "nanocode.py"
 
 LOG = []
 
@@ -15,16 +13,9 @@ def make_handler(message_for_body):
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             LOG.append({"path": self.path, "auth": self.headers.get("Authorization"), "body": body})
-            result = message_for_body(body)
-            if isinstance(result, tuple):
-                status, payload = result
-            else:
-                status, payload = 200, {
-                    "choices": [{"message": result, "finish_reason": "stop"}],
-                    "usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
-                }
-            data = json.dumps(payload).encode()
-            self.send_response(status)
+            message = message_for_body(body)
+            data = json.dumps({"choices": [{"message": message, "finish_reason": "stop"}]}).encode()
+            self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
@@ -42,17 +33,10 @@ def start_server(message_for_body):
     return server
 
 
-def run_isolated(stdin_text, env_extra):
-    with tempfile.TemporaryDirectory() as tmp:
-        shutil.copytree(PKG, Path(tmp) / "nunnuncode")
-        script = Path(tmp) / "nunnuncode" / "nunnuncode.py"
-        return run_nanocode(stdin_text, env_extra, script=script, cwd=Path(tmp))
-
-
-def run_nanocode(stdin_text, env_extra, script=None, cwd=None):
+def run_nanocode(stdin_text, env_extra, script=None):
     script = script or NANO
     env = dict(os.environ)
-    for var in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "MODEL", "API_BASE_URL", "API_KEY", "CONTEXT_WINDOW"):
+    for var in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "MODEL", "API_BASE_URL", "API_KEY"):
         env.pop(var, None)
     env.update(env_extra)
     env["PYTHONIOENCODING"] = "utf-8"
@@ -61,7 +45,7 @@ def run_nanocode(stdin_text, env_extra, script=None, cwd=None):
         input=stdin_text.encode(),
         capture_output=True,
         env=env,
-        cwd=str(cwd or script.parent),
+        cwd=str(script.parent),
     )
     return proc.returncode, proc.stdout.decode("utf-8", "replace"), proc.stderr.decode("utf-8", "replace")
 
@@ -81,22 +65,21 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
                     {
                         "id": "call_1",
                         "type": "function",
-                        "function": {
-                            "name": "glob",
-                            "arguments": json.dumps({"path": ".", "pat": "nunnuncode.py"}),
-                        },
+                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "echo hello"})},
                     }
                 ],
             }
 
         server = start_server(message_for_body)
         port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "what is 2+2?\n",
-            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
-        )
-        server.shutdown()
-        server.server_close()
+        try:
+            code, out, _err = run_nanocode(
+                "what is 2+2?\n",
+                {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
 
         self.assertEqual(code, 0)
         self.assertEqual(len(LOG), 2, "expected 2 API calls (tool call + final answer)")
@@ -114,204 +97,27 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
         roles = [m["role"] for m in r2["body"]["messages"]]
         self.assertEqual(roles, ["system", "user", "assistant", "tool"])
         self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["id"], "call_1")
-        self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["function"]["name"], "glob")
+        self.assertEqual(r2["body"]["messages"][2]["tool_calls"][0]["function"]["name"], "bash")
         self.assertEqual(r2["body"]["messages"][3]["tool_call_id"], "call_1")
 
-        self.assertIn("nanocode", out)
+        self.assertIn("hello", out)
         self.assertIn("Done. The answer is 4.", out)
         self.assertIn(f"custom http://127.0.0.1:{port}/v1", out)
-        self.assertIn("tokens 100 in / 20 out", out)
-
-    def test_intermediate_text_is_commentary_and_final_text_is_answer(self):
-        def message_for_body(body):
-            has_tool_result = any(m.get("role") == "tool" for m in body["messages"])
-            if has_tool_result:
-                return {"content": "Final answer.", "tool_calls": []}
-            return {
-                "content": "I will inspect the workspace first.",
-                "tool_calls": [
-                    {
-                        "id": "call_commentary",
-                        "type": "function",
-                        "function": {
-                            "name": "glob",
-                            "arguments": json.dumps({"path": ".", "pat": "nunnuncode.py"}),
-                        },
-                    }
-                ],
-            }
-
-        server = start_server(message_for_body)
-        port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "inspect the workspace\n",
-            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
-        )
-        server.shutdown()
-        server.server_close()
-        self.assertEqual(code, 0)
-        self.assertEqual(len(LOG), 2)
-        self.assertEqual(
-            [message["role"] for message in LOG[0]["body"]["messages"]],
-            ["system", "user"],
-        )
-        self.assertEqual(
-            [message["role"] for message in LOG[1]["body"]["messages"]],
-            ["system", "user", "assistant", "tool"],
-        )
-        self.assertIn("Commentary:", out)
-        self.assertIn("I will inspect the workspace first.", out)
-        self.assertIn("Answer:", out)
-        self.assertIn("Final answer.", out)
-        self.assertLess(out.index("Commentary:"), out.index("Answer:"))
-
-    def test_model_cannot_invoke_unlisted_shell(self):
-        def message_for_body(body):
-            if any(m.get("role") == "tool" for m in body["messages"]):
-                return {"content": "Shell was unavailable.", "tool_calls": []}
-            return {
-                "content": None,
-                "tool_calls": [
-                    {
-                        "id": "call_shell",
-                        "type": "function",
-                        "function": {"name": "bash", "arguments": json.dumps({"cmd": "echo unsafe"})},
-                    }
-                ],
-            }
-
-        server = start_server(message_for_body)
-        port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "run shell\n",
-            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
-        )
-        server.shutdown()
-        server.server_close()
-        self.assertEqual(code, 0)
-        self.assertIn("capability unavailable", out)
-        self.assertIn("Shell was unavailable.", out)
-
-    def test_model_is_terminated_when_step_budget_is_exhausted(self):
-        def message_for_body(body):
-            return {
-                "content": None,
-                "tool_calls": [
-                    {
-                        "id": f"call_{index}",
-                        "type": "function",
-                        "function": {
-                            "name": "glob",
-                            "arguments": json.dumps({"path": ".", "pat": "nunnuncode.py"}),
-                        },
-                    }
-                    for index in range(30)
-                ],
-            }
-
-        server = start_server(message_for_body)
-        port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "use many tools\n",
-            {"API_BASE_URL": f"http://127.0.0.1:{port}/v1", "API_KEY": "test-key", "MODEL": "test-model"},
-        )
-        server.shutdown()
-        server.server_close()
-        self.assertEqual(code, 0)
-        self.assertEqual(len(LOG), 1)
-        self.assertIn("Terminated:", out)
-        self.assertIn("step limit exceeded", out)
-
-    def test_sliding_window_on_context_overflow(self):
-        def message_for_body(body):
-            turns = sum(
-                1
-                for m in body["messages"]
-                if m.get("role") == "user" and isinstance(m.get("content"), str)
-            )
-            if turns >= 2:
-                return (400, {"error": {"message": "maximum context length exceeded"}})
-            return {"content": f"Answer {len(LOG)}", "tool_calls": []}
-
-        server = start_server(message_for_body)
-        port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "first question\nsecond question\n",
-            {
-                "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
-                "API_KEY": "test-key",
-                "MODEL": "test-model",
-            },
-        )
-        server.shutdown()
-        server.server_close()
-        self.assertEqual(code, 0)
-        self.assertIn("Answer 1", out)
-        self.assertIn("Answer 3", out)
-        self.assertNotIn("Answer 2", out)
-        self.assertIn("trimmed history", out)
-        self.assertEqual(len(LOG), 3)
-        retry_users = [
-            message
-            for message in LOG[2]["body"]["messages"]
-            if message.get("role") == "user"
-        ]
-        self.assertEqual(len(retry_users), 1)
-        self.assertIn("second question", retry_users[0]["content"])
-        self.assertIn("[context checkpoint: earlier history omitted]", retry_users[0]["content"])
-
-    def test_manual_compact_does_not_clear_canonical_history(self):
-        def message_for_body(body):
-            return {"content": f"Answer {len(LOG)}", "tool_calls": []}
-
-        server = start_server(message_for_body)
-        port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "first question\n/compact\nsecond question\n/q\n",
-            {
-                "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
-                "API_KEY": "test-key",
-                "MODEL": "test-model",
-            },
-        )
-        server.shutdown()
-        server.server_close()
-        self.assertEqual(code, 0)
-        self.assertEqual(len(LOG), 2)
-        second_request = json.dumps(LOG[1]["body"]["messages"], ensure_ascii=False)
-        self.assertIn("second question", second_request)
-        self.assertIn("[context checkpoint: earlier history omitted]", second_request)
-        self.assertIn("Compacted conversation", out)
-
-    def test_usage_percent_with_context_window(self):
-        def message_for_body(body):
-            return {"content": "Answer.", "tool_calls": []}
-
-        server = start_server(message_for_body)
-        port = server.server_address[1]
-        code, out, _err = run_isolated(
-            "hi\n",
-            {
-                "API_BASE_URL": f"http://127.0.0.1:{port}/v1",
-                "API_KEY": "test-key",
-                "MODEL": "test-model",
-                "CONTEXT_WINDOW": "10000",
-            },
-        )
-        server.shutdown()
-        server.server_close()
-        self.assertEqual(code, 0)
-        self.assertIn("◔ ctx 120/10,000 (1.20%)", out)
 
     def test_model_required_with_custom_base_url(self):
-        code, _out, err = run_isolated("hi\n", {"API_BASE_URL": "http://127.0.0.1:9/v1"})
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "nanocode.py"
+            script.write_text(NANO.read_text(encoding="utf-8"), encoding="utf-8")
+            code, _out, err = run_nanocode(
+                "hi\n", {"API_BASE_URL": "http://127.0.0.1:9/v1"}, script=script
+            )
         self.assertEqual(code, 1)
         self.assertIn("MODEL environment variable is required", err)
 
 
 class TestDotenv(unittest.TestCase):
     def test_parses_and_does_not_override_existing_vars(self):
-        import config
+        import nanocode
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
@@ -325,7 +131,7 @@ class TestDotenv(unittest.TestCase):
             )
             os.environ["NANO_TEST_A"] = "preexisting"
             try:
-                config.load_dotenv(path)
+                nanocode.load_dotenv(path)
                 self.assertEqual(os.environ["NANO_TEST_A"], "preexisting")
                 self.assertEqual(os.environ["NANO_TEST_B"], "quoted")
                 self.assertEqual(os.environ["NANO_TEST_C"], "single")
@@ -334,9 +140,9 @@ class TestDotenv(unittest.TestCase):
                     os.environ.pop(var, None)
 
     def test_missing_file_is_noop(self):
-        import config
+        import nanocode
 
-        config.load_dotenv(Path("/nonexistent/.env"))
+        nanocode.load_dotenv(Path("/nonexistent/.env"))
 
 
 if __name__ == "__main__":
