@@ -23,7 +23,7 @@ Dies ist mein Lern-Sandkasten für **selbstentwickelte Coding-Agenten**. Ich hab
 
 ```bash
 export ANTHROPIC_API_KEY="your-key"
-python nanocode.py
+python nunnuncode.py
 ```
 
 ### OpenRouter
@@ -32,7 +32,7 @@ Benutze [OpenRouter](https://openrouter.ai), um auf jedes Modell zuzugreifen:
 
 ```bash
 export OPENROUTER_API_KEY="your-key"
-python nanocode.py
+python nunnuncode.py
 ```
 
 Anderes Modell verwenden:
@@ -40,7 +40,7 @@ Anderes Modell verwenden:
 ```bash
 export OPENROUTER_API_KEY="your-key"
 export MODEL="openai/gpt-5.2"
-python nanocode.py
+python nunnuncode.py
 ```
 
 ### Eigener OpenAI-kompatibler Provider
@@ -51,10 +51,10 @@ Funktioniert mit jedem OpenAI-kompatiblen Endpoint (Unternehmens-LLM-Gateway, Ol
 export API_BASE_URL="https://api.siemens.com/llm/v1"
 export API_KEY="your-key"
 export MODEL="your-model-name"
-python nanocode.py
+python nunnuncode.py
 ```
 
-- `API_BASE_URL` — Basis-URL bis `/v1`; nanocode hängt `/chat/completions` an
+- `API_BASE_URL` — Basis-URL bis `/v1`; nunnuncode hängt `/chat/completions` an
 - `API_KEY` — wird als `Authorization: Bearer` gesendet (für lokale Server ohne Auth weglassen)
 - `MODEL` — erforderlich, wenn `API_BASE_URL` gesetzt ist
 

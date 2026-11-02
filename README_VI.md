@@ -23,7 +23,7 @@ Micro Coding Agent. Một file Python duy nhất, zero dependencies.
 
 ```bash
 export ANTHROPIC_API_KEY="your-key"
-python nanocode.py
+python nunnuncode.py
 ```
 
 ### OpenRouter
@@ -32,7 +32,7 @@ Dùng [OpenRouter](https://openrouter.ai) để truy cập mọi model:
 
 ```bash
 export OPENROUTER_API_KEY="your-key"
-python nanocode.py
+python nunnuncode.py
 ```
 
 Để dùng model khác:
@@ -40,7 +40,7 @@ python nanocode.py
 ```bash
 export OPENROUTER_API_KEY="your-key"
 export MODEL="openai/gpt-5.2"
-python nanocode.py
+python nunnuncode.py
 ```
 
 ### Provider OpenAI-compatible tùy ý
@@ -51,10 +51,10 @@ Chạy được với mọi endpoint OpenAI-compatible (LLM gateway của công 
 export API_BASE_URL="https://api.siemens.com/llm/v1"
 export API_KEY="your-key"
 export MODEL="your-model-name"
-python nanocode.py
+python nunnuncode.py
 ```
 
-- `API_BASE_URL` — base URL tính đến `/v1`; nanocode tự thêm `/chat/completions`
+- `API_BASE_URL` — base URL tính đến `/v1`; nunnuncode tự thêm `/chat/completions`
 - `API_KEY` — gửi dưới dạng `Authorization: Bearer` (bỏ qua với server local không cần auth)
 - `MODEL` — bắt buộc khi dùng `API_BASE_URL`
 

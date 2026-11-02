@@ -3,7 +3,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-NANO = REPO / "nanocode.py"
+AGENT_SCRIPT = REPO / "nunnuncode.py"
 
 LOG = []
 
@@ -34,7 +34,7 @@ def start_server(message_for_body):
 
 
 def run_nanocode(stdin_text, env_extra, script=None):
-    script = script or NANO
+    script = script or AGENT_SCRIPT
     env = dict(os.environ)
     for var in ("OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "MODEL", "API_BASE_URL", "API_KEY"):
         env.pop(var, None)
@@ -114,8 +114,8 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
 
     def test_model_required_with_custom_base_url(self):
         with tempfile.TemporaryDirectory() as tmp:
-            script = Path(tmp) / "nanocode.py"
-            script.write_text(NANO.read_text(encoding="utf-8"), encoding="utf-8")
+            script = Path(tmp) / "nunnuncode.py"
+            script.write_text(AGENT_SCRIPT.read_text(encoding="utf-8"), encoding="utf-8")
             code, _out, err = run_nanocode(
                 "hi\n", {"API_BASE_URL": "http://127.0.0.1:9/v1"}, script=script
             )
@@ -125,7 +125,7 @@ class TestOpenAICompatibleProvider(unittest.TestCase):
 
 class TestDotenv(unittest.TestCase):
     def test_parses_and_does_not_override_existing_vars(self):
-        import nanocode
+        import nunnuncode
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / ".env"
@@ -139,7 +139,7 @@ class TestDotenv(unittest.TestCase):
             )
             os.environ["NANO_TEST_A"] = "preexisting"
             try:
-                nanocode.load_dotenv(path)
+                nunnuncode.load_dotenv(path)
                 self.assertEqual(os.environ["NANO_TEST_A"], "preexisting")
                 self.assertEqual(os.environ["NANO_TEST_B"], "quoted")
                 self.assertEqual(os.environ["NANO_TEST_C"], "single")
@@ -148,33 +148,33 @@ class TestDotenv(unittest.TestCase):
                     os.environ.pop(var, None)
 
     def test_missing_file_is_noop(self):
-        import nanocode
+        import nunnuncode
 
-        nanocode.load_dotenv(Path("/nonexistent/.env"))
+        nunnuncode.load_dotenv(Path("/nonexistent/.env"))
 
 
 class TestBashOnlyTool(unittest.TestCase):
     def test_anthropic_schema_contains_only_bash(self):
-        import nanocode
+        import nunnuncode
 
-        tools = nanocode.make_schema()
+        tools = nunnuncode.make_schema()
         self.assertEqual([tool["name"] for tool in tools], ["bash"])
         self.assertEqual(tools[0]["input_schema"]["properties"], {"cmd": {"type": "string"}})
         self.assertEqual(tools[0]["input_schema"]["required"], ["cmd"])
 
     def test_openai_schema_contains_only_bash(self):
-        import nanocode
+        import nunnuncode
 
-        tools = nanocode.make_openai_schema()
+        tools = nunnuncode.make_openai_schema()
         functions = [tool["function"] for tool in tools]
         self.assertEqual([tool["name"] for tool in functions], ["bash"])
         self.assertEqual(functions[0]["parameters"]["properties"], {"cmd": {"type": "string"}})
         self.assertEqual(functions[0]["parameters"]["required"], ["cmd"])
 
     def test_removed_tool_name_is_not_dispatched(self):
-        import nanocode
+        import nunnuncode
 
-        result = nanocode.run_tool("glob", {"pat": "*.py"})
+        result = nunnuncode.run_tool("glob", {"pat": "*.py"})
         self.assertTrue(result.startswith("error:"))
 
 if __name__ == "__main__":
