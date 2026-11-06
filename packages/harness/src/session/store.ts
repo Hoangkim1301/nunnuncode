@@ -1,4 +1,5 @@
-import { closeSync, existsSync, openSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { deriveMessages } from './derive.ts'
 import type { EventType, SessionEvent } from './events.ts'
 
@@ -22,6 +23,9 @@ export class SessionStore {
   }
 
   static open(path: string): SessionStore {
+    // The store owns its file: missing parent directories are created on open
+    // (first run on a fresh machine), so the first append cannot fail on ENOENT.
+    mkdirSync(dirname(path), { recursive: true })
     const events: SessionEvent[] = []
     if (existsSync(path)) {
       const content = readFileSync(path, 'utf8')

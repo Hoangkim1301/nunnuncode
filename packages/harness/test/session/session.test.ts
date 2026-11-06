@@ -101,4 +101,14 @@ describe('SessionStore', () => {
     const e = s.append('user/message', { text: 'first' })
     expect(e.seq).toBe(0)
   })
+
+  it('creates missing parent directories on open (Review Focus: first run on a fresh machine)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nunnun-session-'))
+    dirs.push(dir)
+    const path = join(dir, 'sessions', 'nested', 'chat.jsonl') // parent dirs do not exist
+    const s = SessionStore.open(path)
+    const e = s.append('user/message', { text: 'first run' })
+    expect(e.seq).toBe(0)
+    expect(SessionStore.open(path).events()).toHaveLength(1)
+  })
 })
