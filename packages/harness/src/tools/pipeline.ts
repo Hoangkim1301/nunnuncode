@@ -96,7 +96,12 @@ export async function runPipeline(tool: Tool, input: unknown, ctx: ToolContext, 
 /** Post-execute: large outputs spill to disk and the model gets the path (spec: temp save). */
 function withSpill(result: ToolResult, spillDir: string | undefined): ToolResult {
   if (!spillDir || result.output.length <= SPILL_THRESHOLD) return result
-  const saved = spill(result.output, spillDir)
-  if (!saved) return result
-  return { ...result, output: `${result.output.slice(0, 2000)}\n[full output saved to ${saved.path}]` }
+  // A spill failure must never destroy a good result.
+  try {
+    const saved = spill(result.output, spillDir)
+    if (!saved) return result
+    return { ...result, output: `${result.output.slice(0, 2000)}\n[full output saved to ${saved.path}]` }
+  } catch {
+    return result
+  }
 }

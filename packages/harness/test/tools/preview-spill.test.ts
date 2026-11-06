@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -48,6 +48,25 @@ describe('temp spill', () => {
     expect(big).not.toBeNull()
     expect(existsSync(big!.path)).toBe(true)
     expect(readFileSync(big!.path, 'utf8')).toBe('x'.repeat(SPILL_THRESHOLD + 1))
+  })
+
+  it('creates a missing spill directory (first run on a fresh machine)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'nunnun-spill-'))
+    dirs.push(root)
+    const missing = join(root, 'does', 'not', 'exist')
+    const saved = spill('y'.repeat(SPILL_THRESHOLD + 1), missing)
+    expect(saved).not.toBeNull()
+    expect(existsSync(saved!.path)).toBe(true)
+  })
+
+  it('returns null instead of throwing when the spill target cannot be written', () => {
+    const root = mkdtempSync(join(tmpdir(), 'nunnun-spill-'))
+    dirs.push(root)
+    // a *file* occupies the path where a directory is needed
+    const filePath = join(root, 'blocker')
+    writeFileSync(filePath, 'x')
+    const saved = spill('z'.repeat(SPILL_THRESHOLD + 1), join(filePath, 'sub'))
+    expect(saved).toBeNull()
   })
 
   it('sweep removes only expired files and returns the count', () => {

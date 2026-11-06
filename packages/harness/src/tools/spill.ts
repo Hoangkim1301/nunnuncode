@@ -16,10 +16,17 @@ export function sessionSpillDir(root: string, sessionId: string): string {
 
 export function spill(value: string, sessionDir: string): { path: string } | null {
   if (value.length <= SPILL_THRESHOLD) return null
-  const name = `spill-${Date.now()}-${Math.floor(Math.random() * 1e6)}.txt`
-  const path = join(sessionDir, name)
-  writeFileSync(path, value, 'utf8')
-  return { path }
+  try {
+    // Self-healing: the spill directory is created on demand. A spill failure
+    // must never lose the tool result, so any error returns null.
+    mkdirSync(sessionDir, { recursive: true })
+    const name = `spill-${Date.now()}-${Math.floor(Math.random() * 1e6)}.txt`
+    const path = join(sessionDir, name)
+    writeFileSync(path, value, 'utf8')
+    return { path }
+  } catch {
+    return null
+  }
 }
 
 /** Remove spill files older than ttl; returns how many were removed. */

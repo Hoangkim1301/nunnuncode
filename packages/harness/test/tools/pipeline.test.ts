@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
@@ -132,5 +132,21 @@ describe('guarded tool pipeline', () => {
     expect(result.isError).toBe(false)
     expect(result.output).toContain('[full output saved to')
     rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('a spill failure does not destroy the tool result', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'nunnun-pipe-'))
+    const blocker = join(root, 'blocker')
+    writeFileSync(blocker, 'x') // occupies the path where a directory is needed
+    const tool = makeTool('bash', () => ({ output: 'y'.repeat(6000) }))
+    const policy = createDefaultPolicy({ confirm: async () => 'deny' })
+    const result = await runPipeline(tool, {}, ctx(), {
+      policy,
+      forceDecision: 'allow',
+      spillDir: join(blocker, 'sub'),
+    })
+    expect(result.isError).toBe(false)
+    expect(result.output).toContain('yyyy') // the result survives intact
+    rmSync(root, { recursive: true, force: true })
   })
 })
