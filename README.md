@@ -1,109 +1,69 @@
 # nunnuncode
 
-[🇬🇧 English](README.md) · [🇻🇳 Tiếng Việt](README_VI.md) · [🇩🇪 Deutsch](README_DE.md)
+> An open-source, always-on personal agent — local-first, with memory you can read and edit as plain files.
 
-> A personal project for learning how coding agents work — built by reading code, then rewriting it from scratch.
-
-Micro Coding Agent. Single Python file, zero dependencies.
-
-![screenshot](screenshot.png)
+[🇬🇧 English](README.md) · [🇻🇳 Tiếng Việt](legacy/README_VI.md) · [🇩🇪 Deutsch](legacy/README_DE.md)
 
 ## Why this project
 
-This is my self-learning playground for **self-developed coding agents**. I started by studying how a minimal agent loop works — LLM + tools + history — and then rebuilt it line by line to really understand it. No frameworks, no dependencies, just the core mechanics.
+nunnuncode is a personal assistant in the spirit of Grok Build, Claude Duet, and OpenAI Dots — but open source, local-first, and yours. It codes, remembers, wakes on its own, and messages you only when you must act. Its architecture follows DeepSeek Harness's everything-is-a-plugin shape; its minimalism follows pi. The code is owned: the agent loop, session log, plugin runtime, memory and skills are written here.
 
-## Features
+## Status
 
-- Full agent loop with one model-facing tool: `bash`
-- Conversation history
-- Colored terminal output
-- Single file, zero dependencies
+**Phase 0 — The Seed.** A working minimal coding agent: agent loop, session log, guarded tool pipeline, and the pi toolset. Memory, skills, always-on daemon, and web UI arrive in the next phases (see [the design spec](docs/superpowers/specs/2026-11-06-personal-agent-harness-design.md)).
 
-## Usage
+## Quick start
 
-```bash
-export ANTHROPIC_API_KEY="your-key"
-python nunnuncode.py
-```
-
-### OpenRouter
-
-Use [OpenRouter](https://openrouter.ai) to access any model:
+Requirements: Node.js 22.19+ and [pnpm](https://pnpm.io).
 
 ```bash
-export OPENROUTER_API_KEY="your-key"
-python nunnuncode.py
+pnpm install
+
+# configure (or copy .env.example)
+#   API_BASE_URL  – OpenAI-compatible endpoint, e.g. https://openrouter.ai/api/v1
+#   API_KEY       – your key
+#   MODEL         – model id, e.g. qwen-3.8-27b
+node packages/cli/src/index.ts
 ```
 
-To use a different model:
+Commands: `/c` clear conversation · `/q` or `exit` quit.
+
+Trust model: reads are free; `bash`, `write`, `edit` are confirmed per call (answer `a` to allow for the session).
+
+## Architecture
+
+```
+packages/
+├── harness/          # agent loop, JSONL session log, plugin composer, OpenAI-compatible provider, tool pipeline
+├── plugin-tools/     # bash, powershell, read, write, edit, grep (ripgrep), glob, ls, find
+└── cli/              # nunnuncode CLI chat
+```
+
+- **Provider** — our own OpenAI-compatible client (`providers/openai-provider.ts`): SSE streaming, tool-call assembly, reasoning mapping, abort, bounded retry. No vendor SDK is vendored or installed.
+- **Session log** — append-only JSONL; the model-visible history is always derived from the log.
+- **Tool pipeline** — `allow / confirm / deny / observe`; observe-only mode executes nothing; arguments validated with TypeBox.
+- **Everything is a plugin** — the provider, tools, and (in later phases) memory and skills register on one shared context.
+
+## Tests
 
 ```bash
-export OPENROUTER_API_KEY="your-key"
-export MODEL="openai/gpt-5.2"
-python nunnuncode.py
-```
-
-### Custom OpenAI-compatible provider
-
-Works with any OpenAI-compatible endpoint (your company LLM gateway, Ollama, vLLM, LM Studio, ...):
-
-```bash
-export API_BASE_URL="https://api.siemens.com/llm/v1"
-export API_KEY="your-key"
-export MODEL="your-model-name"
-python nunnuncode.py
-```
-
-- `API_BASE_URL` — base URL up to `/v1`; nunnuncode appends `/chat/completions`
-- `API_KEY` — sent as `Authorization: Bearer` (omit for local servers without auth)
-- `MODEL` — required when using `API_BASE_URL`
-
-### Tests
-
-```bash
-python -m unittest discover tests
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/c` | Clear conversation |
-| `/q` or `exit` | Quit |
-
-## Tool
-
-| Tool | Description |
-|------|-------------|
-| `bash` | Run a shell command |
-
-## Example
-
-```
-────────────────────────────────────────
-❯ say hello
-────────────────────────────────────────
-
-⏺ Bash(echo hello)
-  ⎿  hello
-
-⏺ Hello!
+pnpm test        # all packages, sequentially
+pnpm typecheck   # our packages (strict TypeScript 7)
 ```
 
 ## Learning notes
 
-Things I learned while building this:
+Things learned building this:
 
-- **The agent loop is just a while loop**: send messages → LLM replies with tool calls → run tools → send results back → repeat until no tool calls.
-- **The model sees a tool schema, not its Python implementation**: this agent exposes only one schema, for `bash`.
-
-## Roadmap
-
-Keep the agent in one Python file with one model-facing tool: `bash`. Future changes are limited to correctness and portability of the agent loop and shell execution; adding more tools or feature subsystems is not planned.
+- **The agent loop is a while loop**: send messages → model replies with tool calls → run tools → send results → repeat until nothing is owed. A `length` stop means truncated tool arguments — fail them, don't run them.
+- **Memory is a projection, not a state**: the log is the source of truth; history is derived, so compaction is just another log event.
+- **pi's engine is worth reading**: `pi-agent-core`'s loop is small, explicit, and battle-tested — we reshape it rather than depend on it.
 
 ## Credits
 
-Based on [nanocode](https://github.com/1rgs/nanocode) by [1rgs](https://github.com/1rgs).
+- [pi](https://github.com/earendil-works/pi) by Mario Zechner (Earendil Works) — the agent-loop and tooling design we studied and reshaped. No pi code remains in this repository; our loop's reliability rules (tool-call–driven execution, `length`-stop handling, abort semantics) are behaviorally inspired by it.
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — the architecture inspiration (everything-is-a-plugin, session log, attention philosophy).
+- Legacy Python single-file agent preserved in [legacy/](legacy/) — where this project started.
 
 ## License
 

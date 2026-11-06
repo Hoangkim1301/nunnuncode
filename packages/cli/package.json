@@ -1,0 +1,21 @@
+{
+  "name": "@nunnun/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "nunnuncode": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@nunnun/harness": "workspace:*",
+    "@nunnun/plugin-tools": "workspace:*"
+  }
+}
