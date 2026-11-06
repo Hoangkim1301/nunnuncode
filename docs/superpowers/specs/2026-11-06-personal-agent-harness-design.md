@@ -70,7 +70,7 @@ Four properties, set once, never traded away:
 | Validation | **Zod** at app/plugin boundaries; **TypeBox natively for tool schemas** (pi-ai's native format — no conversion layer) | TS-native; schema friction decided up front |
 | Tests | **Vitest** | TS-native |
 
-Rejected and why: LangChain (JS or Python — churn, hides the loop our loop *is* the product), Pydantic AI (Python-only), CopilotKit (architecture lock-in; assistant-ui chosen — chat is the whole product, and the brain must stay ours), Mastra (its memory/workflow abstractions compete with our memory system), Vercel AI SDK as core loop layer (kept only as optional UI-glue).
+Rejected and why: LangChain (JS or Python — churn, hides the loop our loop *is* the product, and as a dependency it loses to the vendored pi on the owner's own criteria: source in repo, no install churn), Pydantic AI (Python-only), CopilotKit (architecture lock-in; assistant-ui chosen — chat is the whole product, and the brain must stay ours), Mastra (its memory/workflow abstractions compete with our memory system), Vercel AI SDK as core loop layer (kept only as optional UI-glue).
 
 ## Architecture
 
