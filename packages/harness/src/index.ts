@@ -1,3 +1,11 @@
 // @nunnun/harness — the nunnuncode agent core.
-// Plugin composer, agent loop, session log, model providers.
-export {}
+export { compose } from './runtime/composer.ts'
+export type { HarnessContext, Plugin, PluginContext, Tool, ToolContext, ToolResult, Unsubscribe } from './runtime/types.ts'
+export { AgentLoop, type LiveEvent } from './loop/loop.ts'
+export { SessionStore, deriveMessages } from './session/store.ts'
+export type { EventType, SessionEvent } from './session/events.ts'
+export { runPipeline, runBatch } from './tools/pipeline.ts'
+export { createDefaultPolicy } from './tools/policy.ts'
+export type { ConfirmFn, PolicyDecision } from './tools/pipeline.ts'
+export { createPiProvider } from './providers/pi-provider.ts'
+export type { ModelProvider, ModelMessage, ModelProviderStreamRequest, StreamEvent } from './providers/types.ts'

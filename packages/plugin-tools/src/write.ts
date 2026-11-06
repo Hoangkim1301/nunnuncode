@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { createTwoFilesPatch } from 'diff'
 import { Type } from 'typebox'
@@ -22,7 +22,7 @@ export function createWriteTool(): Tool {
       const args = input as { path: string; content: string }
       let before: string | null = null
       try {
-        before = await import('node:fs/promises').then((fs) => fs.readFile(args.path, 'utf8'))
+        before = await readFile(args.path, 'utf8')
       } catch {
         before = null
       }

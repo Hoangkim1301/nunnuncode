@@ -15,7 +15,7 @@ export function matchGlob(path: string, pattern: string): boolean {
 export function globToRegex(pattern: string): RegExp {
   let re = ''
   for (let i = 0; i < pattern.length; i++) {
-    const c = pattern[i]
+    const c = pattern.charAt(i)
     if (c === '*') {
       if (pattern[i + 1] === '*') {
         // `**/` matches zero or more path segments; `**` at end matches everything

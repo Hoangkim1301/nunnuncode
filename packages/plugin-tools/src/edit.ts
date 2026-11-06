@@ -1,7 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { Type } from 'typebox'
 import type { Tool } from '@nunnun/harness'
-
 /**
  * Exact-match single replacement (pi's rule: the old string must match
  * exactly once; otherwise the edit is refused, never guessed).

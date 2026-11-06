@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@types/node": "22.19.19",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
