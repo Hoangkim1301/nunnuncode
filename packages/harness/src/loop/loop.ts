@@ -1,4 +1,5 @@
-import type { HarnessContext, Tool } from '../runtime/composer.ts'
+import type { HarnessContext, Tool } from '../runtime/types.ts'
+import type { ToolContext, ToolResult } from '../runtime/types.ts'
 import type { ModelProvider, StreamEvent } from '../providers/types.ts'
 import { SessionStore } from '../session/store.ts'
 
@@ -36,12 +37,20 @@ export class AgentLoop {
   #session: SessionStore
   #provider: ModelProvider
   #system: string
+  #executeTool?: (tool: Tool, input: unknown, ctx: ToolContext) => Promise<ToolResult>
 
-  constructor(ctx: HarnessContext, session: SessionStore, provider: ModelProvider, system: string) {
+  constructor(
+    ctx: HarnessContext,
+    session: SessionStore,
+    provider: ModelProvider,
+    system: string,
+    executeTool?: (tool: Tool, input: unknown, ctx: ToolContext) => Promise<ToolResult>,
+  ) {
     this.#ctx = ctx
     this.#session = session
     this.#provider = provider
     this.#system = system
+    this.#executeTool = executeTool
   }
 
   async *run(input: string, signal?: AbortSignal): AsyncIterable<LiveEvent> {
@@ -133,6 +142,15 @@ export class AgentLoop {
         if (!tool) {
           output = `error: unknown tool '${call.name}'`
           isError = true
+        } else if (this.#executeTool) {
+          try {
+            const res = await this.#executeTool(tool, call.arguments, { cwd: process.cwd(), signal })
+            output = res.output
+            isError = res.isError ?? false
+          } catch (err) {
+            output = `error: ${err instanceof Error ? err.message : String(err)}`
+            isError = true
+          }
         } else {
           try {
             const res = await tool.execute(call.arguments, { cwd: process.cwd(), signal })
