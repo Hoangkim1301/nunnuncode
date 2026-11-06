@@ -25,7 +25,17 @@ importers:
         version: 4.1.12(@types/node@22.19.19)(vite@7.3.7(@types/node@22.19.19))
 
   packages/cli:
+    dependencies:
+      '@nunnun/harness':
+        specifier: workspace:*
+        version: link:../harness
+      '@nunnun/plugin-tools':
+        specifier: workspace:*
+        version: link:../plugin-tools
     devDependencies:
+      '@types/node':
+        specifier: 22.19.19
+        version: 22.19.19
       typescript:
         specifier: 'catalog:'
         version: 7.0.2
