@@ -147,19 +147,6 @@ importers:
         specifier: 4.1.12
         version: 4.1.12(@types/node@22.19.19)(vite@7.3.7(@types/node@22.19.19))
 
-  packages/zzsandbox:
-    dependencies:
-      '@earendil-works/pi-ai':
-        specifier: workspace:*
-        version: link:../vendor/pi/ai
-    devDependencies:
-      typescript:
-        specifier: 'catalog:'
-        version: 7.0.2
-      vitest:
-        specifier: 'catalog:'
-        version: 4.1.12(@types/node@22.19.19)(vite@7.3.7(@types/node@22.19.19))
-
 packages:
 
   '@anthropic-ai/sdk@0.129.0':
