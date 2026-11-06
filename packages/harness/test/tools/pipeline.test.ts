@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { runPipeline } from '../../src/tools/pipeline.ts'
+import { SPILL_THRESHOLD } from '../../src/tools/spill.ts'
 import { createDefaultPolicy } from '../../src/tools/policy.ts'
 import type { Tool, ToolContext } from '../../src/runtime/types.ts'
 import type { ToolResult } from '../../src/runtime/types.ts'
@@ -126,7 +127,7 @@ describe('guarded tool pipeline', () => {
 
   it('large outputs spill to disk and the path is returned (spec: temp save)', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'nunnun-pipe-'))
-    const tool = makeTool('bash', () => ({ output: 'x'.repeat(6000) }))
+    const tool = makeTool('bash', () => ({ output: 'x'.repeat(SPILL_THRESHOLD + 1) }))
     const policy = createDefaultPolicy({ confirm: async () => 'deny' })
     const result = await runPipeline(tool, {}, ctx(), { policy, forceDecision: 'allow', spillDir: dir })
     expect(result.isError).toBe(false)
@@ -138,7 +139,7 @@ describe('guarded tool pipeline', () => {
     const root = mkdtempSync(join(tmpdir(), 'nunnun-pipe-'))
     const blocker = join(root, 'blocker')
     writeFileSync(blocker, 'x') // occupies the path where a directory is needed
-    const tool = makeTool('bash', () => ({ output: 'y'.repeat(6000) }))
+    const tool = makeTool('bash', () => ({ output: 'y'.repeat(SPILL_THRESHOLD + 1) }))
     const policy = createDefaultPolicy({ confirm: async () => 'deny' })
     const result = await runPipeline(tool, {}, ctx(), {
       policy,
