@@ -29,7 +29,7 @@ export class SessionStore {
       // A trailing partial line (crash mid-append) is tolerated and ignored.
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
-        if (line.trim() === '') continue
+        if (line === undefined || line.trim() === '') continue
         let parsed: SessionEvent
         try {
           parsed = JSON.parse(line) as SessionEvent

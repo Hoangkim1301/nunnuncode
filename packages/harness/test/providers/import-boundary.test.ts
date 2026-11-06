@@ -19,7 +19,9 @@ describe('pi-ai import boundary', () => {
     for (const file of walk(srcDir)) {
       const inProviders = file.replaceAll('\\', '/').includes('/src/providers/')
       const content = readFileSync(file, 'utf8')
-      const importsPi = /from ['"]@earendil-works\/pi-ai/.test(content)
+      // `import type` is erased at compile time — the boundary polices runtime imports only.
+      const runtimeImports = content.replace(/^import type[\s\S]*?from ['"][^'"]+['"]$/gm, '')
+      const importsPi = /from ['"]@earendil-works\/pi-ai/.test(runtimeImports)
       if (importsPi && !inProviders) violations.push(file)
     }
     expect(violations).toEqual([])
