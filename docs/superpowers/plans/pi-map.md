@@ -59,10 +59,16 @@ Verdict: **KEEP for now** — dependency of pi-ai (imported at top level), tests
 
 ## 7. Expected net size after absorption
 
-- agent package: ~2,321 → ~1,600 lines (proxy deleted, loop reshaped)
-- tools: ~4,000 → ~2,000 lines (renderers/wrapper gone, utilities pruned)
-- ai/schema/telemetry: as vendored (~32k lines of owned, tested plumbing)
-- Our new code (session, composer, pipeline, CLI): ~1,500 lines
+- agent package: `vendor/pi/agent` **deleted** — the loop was behaviorally ported
+  into `packages/harness/src/loop/loop.ts` (our code, TDD); the vendored copy was
+  reference-only and never imported. Git history preserves it.
+- tools: `vendor/pi/coding-agent-tools` **deleted** — our own thin tool
+  implementations live in `packages/plugin-tools/` with pi's techniques ported
+  (truncation limits, PowerShell flags, ambiguous-edit refusal). Reference-only,
+  never imported.
+- Kept and imported: `pi-ai` (behind the `ModelProvider` seam) and `pi-schema`
+  (argument validation in the tool pipeline); `telemetry` is a pi-ai dependency.
+- Our new code (session, composer, pipeline, tools, CLI): ~2,000 lines, ~62 tests.
 
 ## Baseline state (committed)
 

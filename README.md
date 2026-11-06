@@ -37,7 +37,7 @@ packages/
 ├── harness/          # agent loop, JSONL session log, plugin composer, ModelProvider seam, tool pipeline
 ├── plugin-tools/     # bash, powershell, read, write, edit, grep (ripgrep), glob, ls, find
 └── cli/              # nunnuncode CLI chat
-packages/vendor/pi/   # vendored pi (MIT): pi-ai, pi-agent-core, pi-schema, telemetry
+packages/vendor/pi/   # vendored pi (MIT): pi-ai, pi-schema, telemetry
 ```
 
 - **Session log** — append-only JSONL; the model-visible history is always derived from the log.
