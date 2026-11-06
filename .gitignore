@@ -1,4 +1,5 @@
 .env
+/docs
 __pycache__/
 node_modules/
 dist/
