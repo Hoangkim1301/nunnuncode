@@ -49,6 +49,25 @@ importers:
         specifier: 'catalog:'
         version: 4.1.12(@types/node@22.19.19)(vite@7.3.7(@types/node@22.19.19))
 
+  packages/plugin-tools:
+    dependencies:
+      '@nunnun/harness':
+        specifier: workspace:*
+        version: link:../harness
+      diff:
+        specifier: ^8.0.2
+        version: 8.0.4
+      typebox:
+        specifier: 1.3.27
+        version: 1.3.27
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 7.0.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.12(@types/node@22.19.19)(vite@7.3.7(@types/node@22.19.19))
+
   packages/vendor/pi/agent:
     dependencies:
       '@earendil-works/pi-ai':
@@ -929,6 +948,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  diff@8.0.4:
+    resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+    engines: {node: '>=0.3.1'}
 
   ecdsa-sig-formatter@1.0.11:
     resolution: {integrity: sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==}
@@ -2041,6 +2064,8 @@ snapshots:
   deep-extend@0.6.0: {}
 
   detect-libc@2.1.2: {}
+
+  diff@8.0.4: {}
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
