@@ -82,8 +82,9 @@ CLI: AgentLoop.run(input)
   implement it (~300 lines) instead of shipping a 26k-line multi-provider SDK.
 - **Trust is a ladder, not a mode.** Reads run free; `bash`/`write`/`edit`
   confirm; the daemon will be observe-only until a written rule allows otherwise.
-- **Tool output is bounded.** Truncation at 2000 lines / 50 KB, and outputs over
-  4 KB spill to a temp file whose path is handed to the model.
+- **Tool output is bounded.** Truncation at 2000 lines / 50 KB; results beyond
+  that spill to a temp file whose path is handed to the model (a spill failure
+  self-heals and never loses the result).
 
 ## What exists today vs later
 

@@ -2,10 +2,16 @@ import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } f
 import { join } from 'node:path'
 
 /**
- * Temp save (spec: outputs >4 KB spill to a per-session dir under the OS
- * temp dir; the path is returned to the agent; files are swept on boot).
+ * Temp save (spec: outputs above the truncation ceiling spill to a per-session
+ * dir under the OS temp dir; the path is returned to the agent; files are swept
+ * on boot).
+ *
+ * Threshold note: the spec said 4 KB, but dogfooding showed that replacing a
+ * 4–50 KB result with a 2 KB head actively loses content the model needs
+ * (e.g. reading a doc). Spill now starts at the same ceiling truncation uses
+ * (50 KB), so in-context results stay whole.
  */
-export const SPILL_THRESHOLD = 4 * 1024
+export const SPILL_THRESHOLD = 50 * 1024
 export const SPILL_TTL_MS = 24 * 60 * 60 * 1000
 
 export function sessionSpillDir(root: string, sessionId: string): string {
