@@ -1,10 +1,14 @@
 packages:
   - packages/*
+  - packages/vendor/pi/*
   - apps/*
 
 allowBuilds:
+  '@google/genai': true
+  canvas: true
   esbuild: true
+  protobufjs: true
 
 catalog:
-  typescript: ^5.9.3
+  typescript: 7.0.2
   vitest: ^3.2.4
