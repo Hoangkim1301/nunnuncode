@@ -2,9 +2,6 @@
   "name": "@nunnun/harness",
   "version": "0.1.0",
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -12,5 +9,8 @@
   "devDependencies": {
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "workspace:*"
   }
 }

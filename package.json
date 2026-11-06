@@ -7,8 +7,8 @@
     "node": ">=22.19"
   },
   "scripts": {
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r exec tsc --noEmit"
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "typecheck": "pnpm --filter @nunnun/* exec tsc --noEmit"
   },
   "devDependencies": {
     "typescript": "catalog:",
