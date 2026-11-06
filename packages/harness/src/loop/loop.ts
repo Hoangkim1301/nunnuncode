@@ -1,5 +1,6 @@
 import type { HarnessContext, Tool } from '../runtime/types.ts'
 import type { ToolContext, ToolResult } from '../runtime/types.ts'
+import type { ToolSchema } from '../providers/types.ts'
 import { buildPreview, type PreviewPayload } from '../tools/preview.ts'
 import type { ModelProvider, StreamEvent } from '../providers/types.ts'
 import { SessionStore } from '../session/store.ts'
@@ -107,10 +108,7 @@ export class AgentLoop {
         message: {
           role: 'assistant',
           content: storedParts,
-          api: 'openai-completions',
-          provider: 'nunnuncode',
-          model: 'unknown',
-          usage: usage ?? { input: 0, output: 0, totalTokens: 0 },
+          ...(usage === undefined ? {} : { usage }),
           stopReason,
           timestamp: Date.now(),
         },
@@ -182,6 +180,6 @@ export class AgentLoop {
   }
 }
 
-function toSchema(tool: Tool): unknown {
+function toSchema(tool: Tool): ToolSchema {
   return { name: tool.name, description: tool.description, parameters: tool.schema }
 }

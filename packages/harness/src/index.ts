@@ -7,6 +7,18 @@ export type { EventType, SessionEvent } from './session/events.ts'
 export { runPipeline } from './tools/pipeline.ts'
 export { createDefaultPolicy } from './tools/policy.ts'
 export type { ConfirmFn, PolicyDecision } from './tools/pipeline.ts'
-export { createPiProvider } from './providers/pi-provider.ts'
-export { createOpenAICompatibleModel } from './providers/openai-compatible.ts'
-export type { ModelProvider, ModelMessage, ModelProviderStreamRequest, StreamEvent } from './providers/types.ts'
+export { createOpenAICompatibleProvider } from './providers/openai-provider.ts'
+export type {
+  AssistantMessage,
+  ContentPart,
+  ModelDefinition,
+  ModelMessage,
+  ModelProvider,
+  ModelProviderStreamRequest,
+  StreamEvent,
+  ToolCallPart,
+  ToolResultMessage,
+  ToolSchema,
+  Usage,
+  UserMessage,
+} from './providers/types.ts'

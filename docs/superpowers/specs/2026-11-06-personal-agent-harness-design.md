@@ -10,6 +10,24 @@ The project pivots away from the old goal (a minimal single-file Python coding a
 
 The architecture follows **DeepSeek Harness's shape** (everything-is-a-plugin, typed events, durable session log — studied from `deepseek-ai/deepseek-harness` and `dsh-superagent-prototype`) — but the code is **owned**, not depended on.
 
+## Amendment (2026-11-06): no vendor code
+
+The original design borrowed pi's plumbing as **vendored** MIT source (`pi-ai` for
+provider access, `pi-schema` for validation). It was absorbed, then removed
+entirely:
+
+- `packages/harness/src/providers/openai-provider.ts` — our own OpenAI-compatible
+  client (SSE streaming, tool-call assembly, reasoning mapping, abort, bounded
+  retry). Only one protocol was ever used.
+- Validation now uses **TypeBox**'s own `Compile` (already a dependency).
+- `packages/vendor/` is gone; the dependency tree shrank from 208 to 51 packages
+  (~201 MB → ~73 MB of `node_modules`), most of that TypeScript itself.
+- pi and DeepSeek Harness remain **design credits** (see README), not dependencies.
+
+Consequence for later phases: adding a non-OpenAI-compatible provider (e.g.
+Anthropic's native protocol) means implementing it in `providers/` — the seam and
+the `StreamEvent` vocabulary are unchanged.
+
 ## Identity (the pitch)
 
 > An open-source always-on personal agent. Local-first. Owns nothing you can't read: the agent loop is TypeScript you can read, the memory is markdown you can edit, the state is SQLite you can query.

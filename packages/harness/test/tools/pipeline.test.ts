@@ -106,24 +106,22 @@ describe('guarded tool pipeline', () => {
     expect(result.output).toContain('path')
   })
 
-  it('coerces numeric strings per pi (pi-schema CoercingValidator)', async () => {
+  it('rejects a string where a number is required, with an actionable error', async () => {
     const spy = { calls: 0 }
-    let seen: unknown
     const tool: Tool = {
       name: 'read',
       description: '',
       schema: { type: 'object', properties: { offset: { type: 'number' } }, required: ['offset'] },
-      execute: async (input) => {
+      execute: async () => {
         spy.calls++
-        seen = input
-        return { output: 'ok' }
+        return { output: 'should not run' }
       },
     }
     const policy = createDefaultPolicy({ confirm: async () => 'deny' })
     const result = await runPipeline(tool, { offset: '5' }, ctx(), { policy, forceDecision: 'allow' })
-    expect(result.isError).toBe(false)
-    expect(spy.calls).toBe(1)
-    expect((seen as { offset: number }).offset).toBe(5) // "5" → 5
+    expect(result.isError).toBe(true)
+    expect(spy.calls).toBe(0) // never executed with the wrong type
+    expect(result.output).toContain('must be number') // the model can retry correctly
   })
 
   it('large outputs spill to disk and the path is returned (spec: temp save)', async () => {

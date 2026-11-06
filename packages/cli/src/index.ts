@@ -7,10 +7,10 @@ import {
   SessionStore,
   compose,
   createDefaultPolicy,
-  createOpenAICompatibleModel,
-  createPiProvider,
+  createOpenAICompatibleProvider,
   runPipeline,
   type LiveEvent,
+  type ModelDefinition,
   type Tool,
   type ToolContext,
 } from '@nunnun/harness'
@@ -18,13 +18,14 @@ import { toolsPlugin } from '@nunnun/plugin-tools'
 import { resolveProviderEnv } from './env.ts'
 import { renderEvent, type RenderState } from './render.ts'
 
-function buildModel(env: ReturnType<typeof resolveProviderEnv>) {
-  return createOpenAICompatibleModel({
+function buildModel(env: ReturnType<typeof resolveProviderEnv>): ModelDefinition {
+  return {
     id: env.model,
     baseUrl: env.baseUrl,
+    apiKey: env.apiKey,
     contextWindow: env.contextWindow,
     reasoning: env.thinking,
-  })
+  }
 }
 
 function newSessionFile(): string {
@@ -51,7 +52,7 @@ async function confirmTool(req: { tool: string; input: unknown }): Promise<'once
 async function main(): Promise<void> {
   const env = resolveProviderEnv(process.cwd())
   const model = buildModel(env)
-  const provider = createPiProvider({ model, apiKey: env.apiKey })
+  const provider = createOpenAICompatibleProvider(model)
 
   const cwd = process.cwd()
   const ctx = compose([toolsPlugin({ cwd, omit: ['powershell'] })], {})

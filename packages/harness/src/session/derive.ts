@@ -1,4 +1,4 @@
-import type { Message } from '@earendil-works/pi-ai'
+import type { ModelMessage } from '../providers/types.ts'
 import type { SessionEvent } from './events.ts'
 
 /**
@@ -15,11 +15,11 @@ import type { SessionEvent } from './events.ts'
  * - `compaction` → drops everything before `firstKeptEventSeq` and prepends
  *   the summary as a user message
  */
-export function deriveMessages(events: readonly SessionEvent[]): Message[] {
+export function deriveMessages(events: readonly SessionEvent[]): ModelMessage[] {
   const compactions = events.filter((e) => e.type === 'compaction')
   const lastCompaction = compactions.at(-1)
 
-  const messages: Message[] = []
+  const messages: ModelMessage[] = []
   if (lastCompaction) {
     messages.push({
       role: 'user',
@@ -41,7 +41,7 @@ export function deriveMessages(events: readonly SessionEvent[]): Message[] {
         })
         break
       case 'assistant/message':
-        messages.push(event.data.message as Message)
+        messages.push(event.data.message as ModelMessage)
         break
       case 'tool/result':
         messages.push({

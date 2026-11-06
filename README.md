@@ -34,15 +34,15 @@ Trust model: reads are free; `bash`, `write`, `edit` are confirmed per call (ans
 
 ```
 packages/
-├── harness/          # agent loop, JSONL session log, plugin composer, ModelProvider seam, tool pipeline
+├── harness/          # agent loop, JSONL session log, plugin composer, OpenAI-compatible provider, tool pipeline
 ├── plugin-tools/     # bash, powershell, read, write, edit, grep (ripgrep), glob, ls, find
 └── cli/              # nunnuncode CLI chat
-packages/vendor/pi/   # vendored pi (MIT): pi-ai, pi-schema, telemetry
 ```
 
+- **Provider** — our own OpenAI-compatible client (`providers/openai-provider.ts`): SSE streaming, tool-call assembly, reasoning mapping, abort, bounded retry. No vendor SDK is vendored or installed.
 - **Session log** — append-only JSONL; the model-visible history is always derived from the log.
-- **Tool pipeline** — `allow / confirm / deny / observe`; observe-only mode executes nothing.
-- **Everything is a plugin** — the model provider, tools, and (in later phases) memory and skills register on one shared context.
+- **Tool pipeline** — `allow / confirm / deny / observe`; observe-only mode executes nothing; arguments validated with TypeBox.
+- **Everything is a plugin** — the provider, tools, and (in later phases) memory and skills register on one shared context.
 
 ## Tests
 
@@ -61,7 +61,7 @@ Things learned building this:
 
 ## Credits
 
-- [pi](https://github.com/earendil-works/pi) by Mario Zechner (Earendil Works) — vendored MIT core: pi-ai, pi-agent-core, tools, schema.
+- [pi](https://github.com/earendil-works/pi) by Mario Zechner (Earendil Works) — the agent-loop and tooling design we studied and reshaped. No pi code remains in this repository; our loop's reliability rules (tool-call–driven execution, `length`-stop handling, abort semantics) are behaviorally inspired by it.
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — the architecture inspiration (everything-is-a-plugin, session log, attention philosophy).
 - Legacy Python single-file agent preserved in [legacy/](legacy/) — where this project started.
 

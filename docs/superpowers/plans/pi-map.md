@@ -1,5 +1,12 @@
 # pi Absorption Map — Phase 0
 
+> **Historical record.** This map drove the absorption of pi v1.5.0 (MIT). After
+> the absorption, the owner chose to remove all vendor code: `packages/vendor/`
+> was deleted and replaced by our own OpenAI-compatible provider
+> (`packages/harness/src/providers/openai-provider.ts`) plus TypeBox validation.
+> pi now appears only as a design credit. The verdicts below remain as the
+> record of what was learned and why.
+
 Source: `earendil-works/pi` tag **v1.5.0** (commit f9a26365568127461c47a07a37dcb42c140a3ac5, 2026-11-02)
 Vendored into: `packages/vendor/pi/` (ai, agent, schema, telemetry, coding-agent-tools)
 

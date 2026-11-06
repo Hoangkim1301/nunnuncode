@@ -1,13 +1,11 @@
 packages:
   - packages/*
-  - packages/vendor/pi/*
-  - apps/*
 
 allowBuilds:
-  '@google/genai': true
-  canvas: true
-  esbuild: true
-  protobufjs: true
+  '@google/genai': set this to true or false
+  canvas: set this to true or false
+  esbuild: set this to true or false
+  protobufjs: set this to true or false
 
 catalog:
   typescript: 7.0.2

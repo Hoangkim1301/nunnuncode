@@ -15,8 +15,6 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "workspace:*",
-    "@earendil-works/pi-schema": "workspace:*",
     "typebox": "1.3.27"
   }
 }

@@ -1,4 +1,4 @@
-import { compile, type CoercingValidator, type ValidationError } from '@earendil-works/pi-schema'
+import { Compile, type Validator } from 'typebox/compile'
 import type { Tool, ToolContext } from '../runtime/types.ts'
 import type { ToolResult } from '../runtime/types.ts'
 import type { ToolPolicy } from './policy.ts'
@@ -6,8 +6,8 @@ import { spill, SPILL_THRESHOLD } from './spill.ts'
 
 export type PolicyDecision = 'allow' | 'confirm' | 'deny' | 'observe'
 
-/** Compiled validators per tool schema (coercing: "42" → 42, pi's behavior). */
-const validators = new WeakMap<object, CoercingValidator<unknown>>()
+/** Compiled validators per tool schema (TypeBox; coerces loosely typed input). */
+const validators = new WeakMap<object, Validator>()
 
 function validateInput(tool: Tool, input: unknown): { ok: true; value: unknown } | { ok: false; message: string } {
   const schema = tool.schema as Record<string, unknown> | undefined
@@ -16,12 +16,15 @@ function validateInput(tool: Tool, input: unknown): { ok: true; value: unknown }
   }
   let validator = validators.get(tool.schema as object)
   if (!validator) {
-    validator = compile(tool.schema as never, { coerce: true }) as CoercingValidator<unknown>
+    validator = Compile(tool.schema as never)
     validators.set(tool.schema as object, validator)
   }
-  const parsed = validator.parse(input)
-  if (parsed.ok) return { ok: true, value: parsed.value }
-  const detail = parsed.errors.map((e: ValidationError) => `${e.path || '/'}: ${e.message}`).join('; ')
+  const converted = validator.Convert(input) // "42" → 42, pi's coercion behavior
+  if (validator.Check(converted)) return { ok: true, value: converted }
+  const detail = validator
+    .Errors(converted)
+    .map((e) => `${e.instancePath || '/'}: ${e.message}`)
+    .join('; ')
   return { ok: false, message: `error: invalid arguments for ${tool.name} — ${detail}` }
 }
 
