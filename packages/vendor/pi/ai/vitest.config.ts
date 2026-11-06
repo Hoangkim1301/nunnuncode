@@ -11,6 +11,9 @@ export default defineConfig({
 		testTimeout: 30000, // 30 seconds for API calls
 		reporters: process.env.GITHUB_ACTIONS ? ["dot", "github-actions"] : ["dot"],
 		silent: "passed-only",
+		// NOTE (absorption): the suite is memory-heavy (large model catalogs, many
+		// provider modules); cap forks so it survives constrained machines.
+		poolOptions: { forks: { maxForks: 2 } },
 		// NOTE (absorption): these suites are credential-gated E2E tests (GitHub Copilot OAuth,
 		// live provider probes). pi's own CI runs them with real tokens; locally they are excluded.
 		exclude: [
