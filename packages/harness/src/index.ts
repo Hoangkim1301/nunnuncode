@@ -4,7 +4,7 @@ export type { HarnessContext, Plugin, PluginContext, Tool, ToolContext, ToolResu
 export { AgentLoop, type LiveEvent } from './loop/loop.ts'
 export { SessionStore, deriveMessages } from './session/store.ts'
 export type { EventType, SessionEvent } from './session/events.ts'
-export { runPipeline, runBatch } from './tools/pipeline.ts'
+export { runPipeline } from './tools/pipeline.ts'
 export { createDefaultPolicy } from './tools/policy.ts'
 export type { ConfirmFn, PolicyDecision } from './tools/pipeline.ts'
 export { createPiProvider } from './providers/pi-provider.ts'

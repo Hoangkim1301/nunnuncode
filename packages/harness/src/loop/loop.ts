@@ -18,8 +18,6 @@ type AssistantPart =
   | { type: 'thinking'; thinking: string }
   | { type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> }
 
-const DONE_STOP_REASONS = new Set(['stop', 'length', 'toolUse', 'deferred'])
-
 /**
  * The agent loop (reshaped from pi-agent-core's engine):
  *

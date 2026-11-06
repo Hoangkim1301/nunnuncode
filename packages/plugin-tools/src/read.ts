@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { isAbsolute, resolve } from 'node:path'
 import { Type } from 'typebox'
 import type { Tool } from '@nunnun/harness'
 import { truncateOutput } from './truncate.ts'
@@ -15,9 +16,10 @@ export function createReadTool(): Tool {
     schema: ReadSchema,
     execute: async (input, ctx) => {
       const args = input as { path: string; offset?: number; limit?: number }
+      const target = isAbsolute(args.path) ? args.path : resolve(ctx.cwd, args.path)
       let content: string
       try {
-        content = await readFile(args.path, 'utf8')
+        content = await readFile(target, 'utf8')
       } catch {
         return { output: `error: cannot read '${args.path}'`, isError: true }
       }

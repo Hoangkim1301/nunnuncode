@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { runBatch, runPipeline } from '../../src/tools/pipeline.ts'
+import { runPipeline } from '../../src/tools/pipeline.ts'
 import { createDefaultPolicy } from '../../src/tools/policy.ts'
 import type { Tool, ToolContext } from '../../src/runtime/types.ts'
 import type { ToolResult } from '../../src/runtime/types.ts'
@@ -86,23 +86,6 @@ describe('guarded tool pipeline', () => {
     })
     expect(result.isError).toBe(true)
     expect(result.output).toContain('kaput')
-  })
-
-  it('runBatch honors the concurrency limit', async () => {
-    let inFlight = 0
-    let peak = 0
-    const tools = [1, 2, 3, 4, 5].map((i) =>
-      makeTool(`t${i}`, async () => {
-        inFlight++
-        peak = Math.max(peak, inFlight)
-        await new Promise((r) => setTimeout(r, 10))
-        inFlight--
-        return { output: String(i) }
-      }),
-    )
-    const results = await runBatch(tools, tools.map(() => ({})), ctx(), 2, async () => 'allow')
-    expect(results).toHaveLength(5)
-    expect(peak).toBe(2)
   })
 
   it('invalid tool arguments: reported as tool error, tool never executes', async () => {

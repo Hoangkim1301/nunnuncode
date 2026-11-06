@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderEvent, toolLabel, type RenderState } from '../src/render.ts'
+import { renderEvent, type RenderState } from '../src/render.ts'
 import type { LiveEvent } from '@nunnun/harness'
 
 describe('CLI renderers', () => {
@@ -29,10 +29,11 @@ describe('CLI renderers', () => {
     expect(end).toContain('edited f.ts')
   })
 
-  it('toolLabel extracts the human-visible part per tool', () => {
-    expect(toolLabel('bash', { command: 'ls -la' })).toBe('ls -la')
-    expect(toolLabel('read', { path: '/tmp/f' })).toBe('/tmp/f')
-    expect(toolLabel('glob', { pattern: '**/*.ts' })).toBe('**/*.ts')
+  it('tool-start renders the preview text (bash command, edit diff, etc.)', () => {
+    const state: RenderState = { textStarted: true }
+    const start = renderEvent({ type: 'tool-start', callId: 'c1', toolName: 'bash', preview: { kind: 'command', text: 'ls -la' } }, state)
+    expect(start).toContain('⏺ bash')
+    expect(start).toContain('ls -la')
   })
 
   it('error events render dimmed and truncated', () => {

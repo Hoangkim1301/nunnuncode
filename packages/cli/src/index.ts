@@ -16,7 +16,7 @@ import {
 } from '@nunnun/harness'
 import { toolsPlugin } from '@nunnun/plugin-tools'
 import { resolveProviderEnv } from './env.ts'
-import { renderEvent, toolLabel, type RenderState } from './render.ts'
+import { renderEvent, type RenderState } from './render.ts'
 
 function buildModel(env: ReturnType<typeof resolveProviderEnv>) {
   return createOpenAICompatibleModel({
@@ -90,25 +90,7 @@ async function main(): Promise<void> {
       const state: RenderState = { textStarted: false }
       try {
         for await (const ev of loop.run(input) as AsyncIterable<LiveEvent>) {
-          switch (ev.type) {
-            case 'tool-start':
-              process.stdout.write(`\n⏺ ${ev.toolName}(${ev.preview?.text ? ev.preview.text.split('\n')[0]?.slice(0, 90) : toolLabel(ev.toolName, undefined)})\n`)
-              break
-            case 'tool-end':
-              process.stdout.write(`  ⎿ ${ev.output.split('\n')[0]?.slice(0, 120)}${ev.isError ? ' [error]' : ''}\n`)
-              break
-            case 'thinking-delta':
-              process.stdout.write(`\x1b[2m${ev.delta}\x1b[0m`)
-              break
-            case 'text-delta':
-              process.stdout.write(ev.delta)
-              break
-            case 'error':
-              process.stdout.write(`\x1b[2m[${String(ev.error).slice(0, 200)}]\x1b[0m`)
-              break
-            default:
-              void renderEvent(ev, state)
-          }
+          process.stdout.write(renderEvent(ev, state))
         }
         process.stdout.write('\n')
       } catch (err) {

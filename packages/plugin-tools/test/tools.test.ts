@@ -92,6 +92,15 @@ describe('read tool', () => {
     const res = await tool.execute({ path: join(tmp(), 'nope.txt') }, ctx(tmp()))
     expect(res.isError).toBe(true)
   })
+
+  it('resolves relative paths against the tool context cwd, not process.cwd', async () => {
+    const dir = tmp()
+    writeFileSync(join(dir, 'rel.txt'), 'relative content')
+    const tool = createReadTool()
+    const res = await tool.execute({ path: 'rel.txt' }, ctx(dir))
+    expect(res.isError).toBe(false)
+    expect(res.output).toContain('relative content')
+  })
 })
 
 describe('write + edit tools', () => {
