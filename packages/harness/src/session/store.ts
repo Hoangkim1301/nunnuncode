@@ -30,7 +30,10 @@ export class SessionStore {
     if (existsSync(path)) {
       const content = readFileSync(path, 'utf8')
       const lines = content.split('\n')
-      // A trailing partial line (crash mid-append) is tolerated and ignored.
+      // A trailing partial line (crash mid-append) is tolerated, ignored, and
+      // REMOVED from disk — leaving it in place would merge with the next
+      // append and corrupt the log permanently.
+      let tornTail = false
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
         if (line === undefined || line.trim() === '') continue
@@ -38,10 +41,16 @@ export class SessionStore {
         try {
           parsed = JSON.parse(line) as SessionEvent
         } catch {
-          if (i === lines.length - 1) break // torn tail
+          if (i === lines.length - 1) {
+            tornTail = true
+            break
+          }
           throw new Error(`corrupt session log at ${path}, line ${i + 1}`)
         }
         events.push(parsed)
+      }
+      if (tornTail) {
+        writeFileSync(path, events.map((e) => JSON.stringify(e)).join('\n') + (events.length > 0 ? '\n' : ''), 'utf8')
       }
     }
     return new SessionStore(path, events)

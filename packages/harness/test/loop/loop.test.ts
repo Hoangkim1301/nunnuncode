@@ -7,6 +7,8 @@ import type { ModelProvider, StreamEvent } from '../../src/providers/types.ts'
 import type { SessionEvent } from '../../src/session/events.ts'
 import { SessionStore } from '../../src/session/store.ts'
 import { compose, type HarnessContext, type Tool } from '../../src/runtime/composer.ts'
+import { createDefaultPolicy } from '../../src/tools/policy.ts'
+import { runPipeline } from '../../src/tools/pipeline.ts'
 
 const dirs: string[] = []
 afterEach(() => {
@@ -117,6 +119,33 @@ describe('AgentLoop', () => {
     expect(end?.isError).toBe(true)
     expect(session.events().at(-1)?.type).toBe('assistant/message')
     expect(JSON.stringify(session.events().at(-1))).toContain('recovered')
+  })
+
+  it('invalid tool arguments: reported as tool error via the pipeline, turn continues', async () => {
+    const provider = new MockProvider()
+    provider.setScripts(
+      [
+        { type: 'tool-call', callId: 'c1', toolName: 'echo', input: {} }, // missing required "text"
+        done,
+      ],
+      [{ type: 'text-delta', delta: 'retrying' }, done],
+    )
+    const session = newSession()
+    const schemaTool: Tool = {
+      name: 'echo',
+      description: '',
+      schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+      execute: async () => ({ output: 'should not run' }),
+    }
+    const ctx: HarnessContext = compose([{ name: 'p', setup: (c) => c.registerTool(schemaTool) }], {})
+    const policy = createDefaultPolicy({ confirm: async () => 'deny' })
+    const loop = new AgentLoop(ctx, session, provider, 'sys', (t, i, c) => runPipeline(t, i, c, { policy }))
+
+    const events = await drain(loop, 'go')
+    const end = events.find((e) => e.type === 'tool-end') as { output: string; isError?: boolean } | undefined
+    expect(end?.isError).toBe(true)
+    expect(end?.output).toContain('invalid arguments')
+    expect(JSON.stringify(session.events().at(-1))).toContain('retrying')
   })
 
   it('abort mid-stream: generator ends, no dangling tool/call in the log', async () => {

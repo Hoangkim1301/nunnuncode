@@ -20,8 +20,8 @@ export function createPowerShellTool(defaults: { cwd: string; timeoutMs?: number
         args.command,
         { cwd: ctx.cwd ?? defaults.cwd, timeoutMs: args.timeout_ms ?? defaults.timeoutMs ?? 120_000, signal: ctx.signal },
       )
-      const suffix = res.exitCode !== null && res.exitCode !== 0 ? `\n[exit code: ${res.exitCode}]` : ''
-      return { output: res.output + suffix, isError: res.exitCode !== 0 && res.exitCode !== null }
+      const suffix = res.exitCode === null ? '\n[aborted]' : res.exitCode !== 0 ? `\n[exit code: ${res.exitCode}]` : ''
+      return { output: res.output + suffix, isError: res.exitCode === null || res.exitCode !== 0 }
     },
   }
 }

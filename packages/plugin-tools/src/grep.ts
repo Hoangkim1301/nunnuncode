@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { Type } from 'typebox'
 import type { Tool } from '@nunnun/harness'
+import { truncateOutput } from './truncate.ts'
 
 /**
  * ripgrep-backed content search (spec decision). The binary is located on
@@ -45,8 +46,9 @@ export function createGrepTool(): Tool {
         })
         child.on('error', () => resolve({ output: 'error: failed to run ripgrep', isError: true }))
         child.on('close', (code) => {
-          if (out === '') resolve({ output: `no matches for '${args.pattern}'`, isError: false })
-          else resolve({ output: out, isError: code === 2 })
+          if (out === '') return resolve({ output: `no matches for '${args.pattern}'`, isError: false })
+          const t = truncateOutput(out)
+          return resolve({ output: t.content, isError: code === 2 })
         })
       })
     },

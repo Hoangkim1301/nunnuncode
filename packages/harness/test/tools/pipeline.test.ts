@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { runBatch, runPipeline } from '../../src/tools/pipeline.ts'
 import { createDefaultPolicy } from '../../src/tools/policy.ts'
@@ -100,5 +103,53 @@ describe('guarded tool pipeline', () => {
     const results = await runBatch(tools, tools.map(() => ({})), ctx(), 2, async () => 'allow')
     expect(results).toHaveLength(5)
     expect(peak).toBe(2)
+  })
+
+  it('invalid tool arguments: reported as tool error, tool never executes', async () => {
+    const spy = { calls: 0 }
+    const tool: Tool = {
+      name: 'read',
+      description: '',
+      schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      execute: async (input) => {
+        spy.calls++
+        return { output: `read ${(input as { path: string }).path}` }
+      },
+    }
+    const policy = createDefaultPolicy({ confirm: async () => 'deny' })
+    const result = await runPipeline(tool, {}, ctx(), { policy, forceDecision: 'allow' })
+    expect(spy.calls).toBe(0)
+    expect(result.isError).toBe(true)
+    expect(result.output).toContain('path')
+  })
+
+  it('coerces numeric strings per pi (pi-schema CoercingValidator)', async () => {
+    const spy = { calls: 0 }
+    let seen: unknown
+    const tool: Tool = {
+      name: 'read',
+      description: '',
+      schema: { type: 'object', properties: { offset: { type: 'number' } }, required: ['offset'] },
+      execute: async (input) => {
+        spy.calls++
+        seen = input
+        return { output: 'ok' }
+      },
+    }
+    const policy = createDefaultPolicy({ confirm: async () => 'deny' })
+    const result = await runPipeline(tool, { offset: '5' }, ctx(), { policy, forceDecision: 'allow' })
+    expect(result.isError).toBe(false)
+    expect(spy.calls).toBe(1)
+    expect((seen as { offset: number }).offset).toBe(5) // "5" → 5
+  })
+
+  it('large outputs spill to disk and the path is returned (spec: temp save)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nunnun-pipe-'))
+    const tool = makeTool('bash', () => ({ output: 'x'.repeat(6000) }))
+    const policy = createDefaultPolicy({ confirm: async () => 'deny' })
+    const result = await runPipeline(tool, {}, ctx(), { policy, forceDecision: 'allow', spillDir: dir })
+    expect(result.isError).toBe(false)
+    expect(result.output).toContain('[full output saved to')
+    rmSync(dir, { recursive: true, force: true })
   })
 })

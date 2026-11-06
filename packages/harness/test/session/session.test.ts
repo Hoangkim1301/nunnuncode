@@ -67,6 +67,18 @@ describe('SessionStore', () => {
     expect(s.events()[0]?.data).toEqual({ text: 'a' })
   })
 
+  it('torn tail: appending after recovery keeps the log clean (no merged lines)', () => {
+    const path = tempFile('s3b.jsonl')
+    writeFileSync(path, '{"seq":0,"ts":1,"type":"user/message","data":{"text":"a"}}\n{"seq":1,"ts":2,"type":"user/me')
+
+    const s = SessionStore.open(path) // recovery: torn tail removed from disk
+    s.append('user/message', { text: 'b' })
+
+    const reopened = SessionStore.open(path) // must not throw "corrupt session log"
+    expect(reopened.events()).toHaveLength(2)
+    expect(reopened.events()[1]?.data).toEqual({ text: 'b' })
+  })
+
   it('compaction: events before firstKeptEventSeq are dropped from derived history, summary prepended', () => {
     const path = tempFile('s4.jsonl')
     const s = SessionStore.open(path)

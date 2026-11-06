@@ -45,15 +45,16 @@ describe('bash tool', () => {
     expect(res.isError).toBe(true)
   })
 
-  it('abort kills the spawned process (Review Focus 2)', async () => {
+  it('abort kills the spawned process and reports an error (Review Focus 2)', async () => {
     const tool = createBashTool({ cwd: tmp() })
     const controller = new AbortController()
     const p = tool.execute({ command: 'Start-Sleep -Seconds 30' }, { cwd: tmp(), signal: controller.signal })
     await new Promise((r) => setTimeout(r, 300))
     controller.abort()
     const res = await p
-    // the tool result resolves (no hang); the process was killed
-    expect(res).toBeDefined()
+    // resolves (no hang), the process was killed, and the model is told it failed
+    expect(res.isError).toBe(true)
+    expect(res.output).toContain('[aborted]')
   })
 })
 

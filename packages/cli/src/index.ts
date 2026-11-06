@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { homedir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import {
@@ -56,7 +56,9 @@ async function main(): Promise<void> {
   const cwd = process.cwd()
   const ctx = compose([toolsPlugin({ cwd, omit: ['powershell'] })], {})
   const policy = createDefaultPolicy({ confirm: confirmTool })
-  const executeTool = (tool: Tool, input: unknown, toolCtx: ToolContext) => runPipeline(tool, input, toolCtx, { policy })
+  const spillDir = join(tmpdir(), 'nunnuncode', 'spills')
+  const executeTool = (tool: Tool, input: unknown, toolCtx: ToolContext) =>
+    runPipeline(tool, input, toolCtx, { policy, spillDir })
 
   const session = SessionStore.open(newSessionFile())
   const loop = new AgentLoop(ctx, session, provider, 'You are nunnuncode, a helpful coding assistant.', executeTool)
@@ -90,7 +92,7 @@ async function main(): Promise<void> {
         for await (const ev of loop.run(input) as AsyncIterable<LiveEvent>) {
           switch (ev.type) {
             case 'tool-start':
-              process.stdout.write(`\n⏺ ${ev.toolName}(${toolLabel(ev.toolName, undefined)})\n`)
+              process.stdout.write(`\n⏺ ${ev.toolName}(${ev.preview?.text ? ev.preview.text.split('\n')[0]?.slice(0, 90) : toolLabel(ev.toolName, undefined)})\n`)
               break
             case 'tool-end':
               process.stdout.write(`  ⎿ ${ev.output.split('\n')[0]?.slice(0, 120)}${ev.isError ? ' [error]' : ''}\n`)

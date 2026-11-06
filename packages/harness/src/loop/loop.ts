@@ -1,5 +1,6 @@
 import type { HarnessContext, Tool } from '../runtime/types.ts'
 import type { ToolContext, ToolResult } from '../runtime/types.ts'
+import { buildPreview, type PreviewPayload } from '../tools/preview.ts'
 import type { ModelProvider, StreamEvent } from '../providers/types.ts'
 import { SessionStore } from '../session/store.ts'
 
@@ -9,7 +10,7 @@ import { SessionStore } from '../session/store.ts'
  */
 export type LiveEvent =
   | StreamEvent
-  | { type: 'tool-start'; callId: string; toolName: string }
+  | { type: 'tool-start'; callId: string; toolName: string; preview?: PreviewPayload }
   | { type: 'tool-end'; callId: string; toolName: string; output: string; isError: boolean }
 
 type AssistantPart =
@@ -64,6 +65,7 @@ export class AgentLoop {
       const parts: AssistantPart[] = []
       let stopReason = 'stop'
       let sawDone = false
+      let usage: { input: number; output: number; totalTokens: number } | undefined
 
       for await (const ev of this.#provider.stream({
         system: this.#system,
@@ -83,6 +85,7 @@ export class AgentLoop {
         } else if (ev.type === 'done') {
           sawDone = true
           stopReason = ev.stopReason ?? 'stop'
+          usage = ev.usage
           yield ev
         } else if (ev.type === 'error') {
           sawDone = true
@@ -109,7 +112,7 @@ export class AgentLoop {
           api: 'openai-completions',
           provider: 'nunnuncode',
           model: 'unknown',
-          usage: { input: 0, output: 0, totalTokens: 0 },
+          usage: usage ?? { input: 0, output: 0, totalTokens: 0 },
           stopReason,
           timestamp: Date.now(),
         },
@@ -120,7 +123,12 @@ export class AgentLoop {
       for (const call of pendingCalls) {
         if (stopReason === 'length') {
           // pi's rule: truncated output means truncated arguments — fail, don't run.
-          this.#session.append('tool/call', { callId: call.id, toolName: call.name, input: call.arguments })
+          this.#session.append('tool/call', {
+            callId: call.id,
+            toolName: call.name,
+            input: call.arguments,
+            preview: buildPreview(call.name, call.arguments),
+          })
           const result = { output: 'output truncated before tool arguments completed', isError: true }
           this.#session.append('tool/result', {
             callId: call.id,
@@ -128,13 +136,18 @@ export class AgentLoop {
             output: result.output,
             isError: true,
           })
-          yield { type: 'tool-start', callId: call.id, toolName: call.name }
+          yield { type: 'tool-start', callId: call.id, toolName: call.name, preview: buildPreview(call.name, call.arguments) ?? undefined }
           yield { type: 'tool-end', callId: call.id, toolName: call.name, ...result }
           continue
         }
 
-        this.#session.append('tool/call', { callId: call.id, toolName: call.name, input: call.arguments })
-        yield { type: 'tool-start', callId: call.id, toolName: call.name }
+        this.#session.append('tool/call', {
+          callId: call.id,
+          toolName: call.name,
+          input: call.arguments,
+          preview: buildPreview(call.name, call.arguments),
+        })
+        yield { type: 'tool-start', callId: call.id, toolName: call.name, preview: buildPreview(call.name, call.arguments) ?? undefined }
 
         const tool = this.#ctx.tools.find((t) => t.name === call.name)
         let output: string
