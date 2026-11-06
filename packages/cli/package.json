@@ -1,0 +1,16 @@
+{
+  "name": "@nunnun/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "nunnuncode": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
